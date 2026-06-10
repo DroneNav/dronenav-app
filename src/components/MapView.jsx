@@ -41,6 +41,7 @@ export default function MapView() {
     const [siteType, setSiteType] = useState('school');
     const [zoneName, setZoneName] = useState('');
     const [zoneType, setZoneType] = useState('restricted');
+    const [selectedObject, setSelectedObject] = useState(null);
     const [selectedSiteId, setSelectedSiteId] = useState('');
     const [droneportName, setDroneportName] = useState('');
     const [droneportType, setDroneportType] = useState('recreation');
@@ -74,16 +75,14 @@ export default function MapView() {
                     : mapMode === 'create_route'
                         ? 'Route Points'
                         : 'Points';
-
-    const [approachSegmentMinimumAltitude, setApproachSegmentMinimumAltitude] = useState(0);
-    const [routeSegmentMinimumAltitude, setRouteSegmentMinimumAltitude] = useState(45);
-    const [approachSegmentMaximumAltitude, setApproachSegmentMaximumAltitude] = useState(55);
-    const [routeSegmentMaximumAltitude, setRouteSegmentMaximumAltitude] = useState(400);
-    const [routeSpeedLimit, setRouteSpeedLimit] = useState(15);
-    const [routeWidth, setRouteSWidth] = useState(10);
+    const originDroneports = savedDroneports.filter(
+        (droneport) => droneport.site_id === originSelectedSiteId
+    );
+    const destinationDroneports = savedDroneports.filter(
+        (droneport) => droneport.site_id === destinationSelectedSiteId
+    );
 
     function handleMapClick(latlng) {
-        console.log('Map clicked:', mapMode, latlng);
 
         if (mapMode === 'view') {
             return;
@@ -252,22 +251,22 @@ export default function MapView() {
             }
             : null;
 
-const routeSegmentAttributes =
-    points.length >= 4
-        ? points.slice(0, -1).map((point, index) => {
-            const isDepartureSegment = index === 0;
-            const isApproachSegment = index === points.length - 2;
-            const isApproachOrDeparture =
-                isDepartureSegment || isApproachSegment;
+    const routeSegmentAttributes =
+        points.length >= 4
+            ? points.slice(0, -1).map((point, index) => {
+                const isDepartureSegment = index === 0;
+                const isApproachSegment = index === points.length - 2;
+                const isApproachOrDeparture =
+                    isDepartureSegment || isApproachSegment;
 
-            return {
-                route_width_ft: 10,
-                minimum_altitude_ft: isApproachOrDeparture ? 0 : 45,
-                maximum_altitude_ft: isApproachOrDeparture ? 55 : 400,
-                speed_limit_mph: 15,
-            };
-        })
-        : [];
+                return {
+                    route_width_ft: 10,
+                    minimum_altitude_ft: isApproachOrDeparture ? 0 : 45,
+                    maximum_altitude_ft: isApproachOrDeparture ? 55 : 400,
+                    speed_limit_mph: 15,
+                };
+            })
+            : [];
 
     const routePayload =
         routeJson && routeName.trim() && originSelectedSiteId && destinationSelectedSiteId
@@ -417,6 +416,93 @@ const routeSegmentAttributes =
         }
     }
 
+    async function deleteSelectedObject() {
+        if (!selectedObject) {
+            alert('Select an object to delete first.');
+            return;
+        }
+
+        const confirmed = window.confirm(
+            `Delete this ${selectedObject.type}? This cannot be undone.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        const { type, data } = selectedObject;
+
+        const endpoints = {
+            site: `https://api.dronenav.org/api/sites/${data.site_id}`,
+            zone: `https://api.dronenav.org/api/zones/${data.zone_id}`,
+            droneport: `https://api.dronenav.org/api/droneports/${data.droneport_id}`,
+            route: `https://api.dronenav.org/api/routes/${data.route_id}`,
+        };
+
+        console.log('Deleting selected object:', selectedObject);
+        console.log('Delete URL:', endpoints[type]);
+
+        try {
+            console.log('Deleting selected object:', selectedObject);
+            console.log('Delete URL:', endpoints[type]);
+
+            const response = await fetch(endpoints[type], {
+                method: 'DELETE',
+            });
+
+            console.log('Delete response status:', response.status);
+
+            const result = await response.json();
+
+            console.log('Delete response:', result);
+
+            if (!response.ok) {
+                console.error('Delete error:', result);
+                alert('Delete failed. Check browser console.');
+                return;
+            }
+
+            alert('Deleted successfully.');
+
+            setSelectedObject(null);
+
+            if (type === 'site') {
+                setSavedSites((current) =>
+                    current.filter((site) => site.site_id !== data.site_id)
+                );
+            } else if (type === 'zone') {
+                setSavedZones((current) =>
+                    current.filter((zone) => zone.zone_id !== data.zone_id)
+                );
+            } else if (type === 'droneport') {
+                setSavedDroneports((current) =>
+                    current.filter(
+                        (droneport) =>
+                            droneport.droneport_id !== data.droneport_id
+                    )
+                );
+            } else if (type === 'route') {
+                setSavedRoutes((current) =>
+                    current.filter((route) => route.route_id !== data.route_id)
+                );
+            }
+
+            if (type === 'site') {
+                await loadSites();
+            } else if (type === 'zone') {
+                await loadZones();
+            } else if (type === 'droneport') {
+                await loadDroneports();
+            } else if (type === 'route') {
+                await loadRoutes();
+            }
+        }
+        catch (error) {
+            console.error('Delete failed:', error);
+            alert('Delete failed. Check browser console.');
+        }
+    }
+
     return (
         <div>
             <div style={{ padding: '10px' }}>
@@ -428,6 +514,7 @@ const routeSegmentAttributes =
                     onChange={(e) => {
                         setMapMode(e.target.value);
                         clearPoints();
+                        setSelectedObject(null);
                     }}
                 >
                     <option value="view">View</option>
@@ -435,6 +522,8 @@ const routeSegmentAttributes =
                     <option value="create_zone">Create Zone</option>
                     <option value="create_droneport">Create DronePort</option>
                     <option value="create_route">Create Route</option>
+                    <option value="update">Update</option>
+                    <option value="delete">Delete</option>
                 </select>
 
                 <span style={{ marginLeft: '20px' }}>
@@ -601,7 +690,10 @@ const routeSegmentAttributes =
 
                         <select
                             value={originSelectedSiteId}
-                            onChange={(e) => setOriginSelectedSiteId(e.target.value)}
+                            onChange={(e) => {
+                                setOriginSelectedSiteId(e.target.value);
+                                setOriginSelectedDroneportId('');
+                            }}
                         >
                             <option value="">Select Origin Site</option>
                             {savedSites.map((site) => (
@@ -613,7 +705,10 @@ const routeSegmentAttributes =
 
                         <select
                             value={destinationSelectedSiteId}
-                            onChange={(e) => setDestinationSelectedSiteId(e.target.value)}
+                            onChange={(e) => {
+                                setDestinationSelectedSiteId(e.target.value);
+                                setDestinationSelectedDroneportId('');
+                            }}
                         >
                             <option value="">Select Destination Site</option>
                             {savedSites.map((site) => (
@@ -628,7 +723,7 @@ const routeSegmentAttributes =
                             onChange={(e) => setOriginSelectedDroneportId(e.target.value)}
                         >
                             <option value="">Select Origin DronePort</option>
-                            {savedDroneports.map((droneport) => (
+                            {originDroneports.map((droneport) => (
                                 <option key={droneport.droneport_id} value={droneport.droneport_id}>
                                     {droneport.droneport_name}
                                 </option>
@@ -640,7 +735,7 @@ const routeSegmentAttributes =
                             onChange={(e) => setDestinationSelectedDroneportId(e.target.value)}
                         >
                             <option value="">Select Destination DronePort</option>
-                            {savedDroneports.map((droneport) => (
+                            {destinationDroneports.map((droneport) => (
                                 <option key={droneport.droneport_id} value={droneport.droneport_id}>
                                     {droneport.droneport_name}
                                 </option>
@@ -730,6 +825,31 @@ const routeSegmentAttributes =
                 </div>
             )}
 
+
+            {selectedObject && (
+                <div style={{ padding: '10px' }}>
+                    <h3>Selected Object</h3>
+
+                    <button
+                        onClick={() => setSelectedObject(null)}
+                        style={{ marginBottom: '10px' }}
+                    >
+                        Clear Selection
+                    </button>
+
+                    {mapMode === 'delete' && (
+                        <button
+                            onClick={deleteSelectedObject}
+                            style={{ marginLeft: '10px', marginBottom: '10px' }}
+                        >
+                            Delete Selected
+                        </button>
+                    )}
+
+                    <pre>{JSON.stringify(selectedObject, null, 2)}</pre>
+                </div>
+            )}
+
             <div style={{ padding: '10px' }}>
                 Current Center: {currentCenter[0].toFixed(6)},{' '}
                 {currentCenter[1].toFixed(6)}
@@ -802,8 +922,22 @@ const routeSegmentAttributes =
                                 fillOpacity: 0.15,
                                 dashArray: site.operational_status === 'active' ? null : '4, 8',
                             }}
-                            interactive={mapMode === 'view'}
                             bubblingMouseEvents={false}
+                            interactive={
+                                mapMode === 'view' ||
+                                mapMode === 'update' ||
+                                mapMode === 'delete'
+                            }
+                            eventHandlers={{
+                                click: () => {
+                                    if (mapMode === 'update' || mapMode === 'delete') {
+                                        setSelectedObject({
+                                            type: 'site',
+                                            data: site,
+                                        });
+                                    }
+                                },
+                            }}
                         >
                             {mapMode === 'view' && (
                                 <Popup>
@@ -847,8 +981,22 @@ const routeSegmentAttributes =
                                 fillOpacity: 0.15,
                                 dashArray: zone.operational_status === 'active' ? null : '4, 8',
                             }}
-                            interactive={mapMode === 'view'}
                             bubblingMouseEvents={false}
+                            interactive={
+                                mapMode === 'view' ||
+                                mapMode === 'update' ||
+                                mapMode === 'delete'
+                            }
+                            eventHandlers={{
+                                click: () => {
+                                    if (mapMode === 'update' || mapMode === 'delete') {
+                                        setSelectedObject({
+                                            type: 'zone',
+                                            data: zone,
+                                        });
+                                    }
+                                },
+                            }}
                         >
                             {mapMode === 'view' && (
                                 <Popup>
@@ -890,8 +1038,22 @@ const routeSegmentAttributes =
                                 weight: 3,
                                 fillOpacity: 0.15,
                             }}
-                            interactive={mapMode === 'view'}
                             bubblingMouseEvents={false}
+                            interactive={
+                                mapMode === 'view' ||
+                                mapMode === 'update' ||
+                                mapMode === 'delete'
+                            }
+                            eventHandlers={{
+                                click: () => {
+                                    if (mapMode === 'update' || mapMode === 'delete') {
+                                        setSelectedObject({
+                                            type: 'droneport',
+                                            data: droneport,
+                                        });
+                                    }
+                                },
+                            }}
                         >
                             {mapMode === 'view' && (
                                 <Popup>
@@ -933,8 +1095,22 @@ const routeSegmentAttributes =
                                 weight: 2,
                                 dashArray: route.operational_status === 'active' ? null : '4, 8',
                             }}
-                            interactive={mapMode === 'view'}
                             bubblingMouseEvents={false}
+                            interactive={
+                                mapMode === 'view' ||
+                                mapMode === 'update' ||
+                                mapMode === 'delete'
+                            }
+                            eventHandlers={{
+                                click: () => {
+                                    if (mapMode === 'update' || mapMode === 'delete') {
+                                        setSelectedObject({
+                                            type: 'route',
+                                            data: route,
+                                        });
+                                    }
+                                },
+                            }}
                         >
                             {mapMode === 'view' && (
                                 <Popup>
