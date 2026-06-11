@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
 import {
     MapContainer,
     TileLayer,
@@ -10,6 +11,8 @@ import {
     useMapEvents,
 } from 'react-leaflet';
 
+import L from 'leaflet';
+import 'leaflet-polylinedecorator';
 import 'leaflet/dist/leaflet.css';
 
 import {
@@ -36,6 +39,50 @@ function MapClickHandler({ onMapClick }) {
             onMapClick(e.latlng);
         },
     });
+
+    return null;
+}
+
+function RouteArrows({ positions, direction }) {
+    const map = useMapEvents({});
+
+    useEffect(() => {
+        if (!positions || positions.length < 2) {
+            return;
+        }
+
+        const arrowPositions =
+            direction === 1
+                ? [...positions].reverse()
+                : positions;
+
+        const decorator = L.polylineDecorator(
+            L.polyline(arrowPositions),
+            {
+                patterns: [
+                    {
+                        offset: '25%',
+                        repeat: '20%',
+                        symbol: L.Symbol.arrowHead({
+                            pixelSize: 6,
+                            polygon: false,
+                            pathOptions: {
+                                color: 'green',
+                                stroke: true,
+                                weight: 2,
+                            },
+                        }),
+                    },
+                ],
+            }
+        );
+
+        decorator.addTo(map);
+
+        return () => {
+            map.removeLayer(decorator);
+        };
+    }, [map, positions, direction]);
 
     return null;
 }
@@ -1250,7 +1297,7 @@ export default function MapView() {
                     <pre>{JSON.stringify(selectedObject, null, 2)}</pre>
                 </div>
             )}
-            
+
             <div style={{ padding: '10px' }}>
                 Current Center: {currentCenter[0].toFixed(6)},{' '}
                 {currentCenter[1].toFixed(6)}
@@ -1543,6 +1590,15 @@ export default function MapView() {
                                 },
                             }}
                         >
+                            {route.direction !== 2 && (
+                                <RouteArrows
+                                    positions={route.geometry.coordinates.map((coordinate) => [
+                                        coordinate[1],
+                                        coordinate[0],
+                                    ])}
+                                    direction={route.direction}
+                                />
+                            )}
                             {mapMode === 'view' && (
                                 <Popup>
                                     <strong>{route.route_name}</strong>
