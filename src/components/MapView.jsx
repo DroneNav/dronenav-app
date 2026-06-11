@@ -12,6 +12,13 @@ import {
 
 import 'leaflet/dist/leaflet.css';
 
+import {
+    MAP_TILE_URL,
+    MAP_TILE_ATTRIBUTION,
+    DEFAULT_MAP_CENTER,
+    DEFAULT_MAP_ZOOM,
+} from '../config/mapConfig';
+
 function MapPositionTracker({ onMove }) {
     useMapEvents({
         moveend(e) {
@@ -52,12 +59,14 @@ export default function MapView() {
     const [destinationSelectedDroneportId, setDestinationSelectedDroneportId] = useState('');
     const [minimumAircraftWeight, setMinimumAircraftWeight] = useState(4.0);
     const [maximumAircraftWeight, setMaximumAircraftWeight] = useState(50.0);
+    const [minimumAltitude, setMinimumAltitude] = useState(0);
+    const [maximumAltitude, setMaximumAltitude] = useState(400);
     const [routeDirection, setRouteDirection] = useState('2');
     const [routeBuffering, setRouteBuffering] = useState(0);
     const [routeName, setRouteName] = useState('');
     const [routeType, setRouteType] = useState('open');
-    const [mapCenter, setMapCenter] = useState([34.0754, -84.2941]);
-    const [currentCenter, setCurrentCenter] = useState([34.0754, -84.2941]);
+    const [mapCenter, setMapCenter] = useState(DEFAULT_MAP_CENTER);
+    const [currentCenter, setCurrentCenter] = useState(DEFAULT_MAP_CENTER);
     const [authorityId, setAuthorityId] = useState(
         '019e886f-5110-7067-90f9-17e73143a30a'
     );
@@ -83,8 +92,12 @@ export default function MapView() {
     );
 
     function handleMapClick(latlng) {
-
-        if (mapMode === 'view') {
+        if (
+            mapMode !== 'create_site' &&
+            mapMode !== 'create_zone' &&
+            mapMode !== 'create_droneport' &&
+            mapMode !== 'create_route'
+        ) {
             return;
         }
 
@@ -223,8 +236,19 @@ export default function MapView() {
                 authority_id: authorityId,
                 site_name: siteName,
                 site_type: siteType,
+                description: siteDescription,
                 created_by: 'dronenav',
                 geometry: geoJson,
+            }
+            : null;
+
+    const siteUpdatePayload =
+        selectedObject &&
+            selectedObject.type === 'site'
+            ? {
+                description: siteDescription,
+                minimum_altitude_ft: minimumAltitude,
+                maximum_altitude_ft: maximumAltitude,
             }
             : null;
 
@@ -239,6 +263,17 @@ export default function MapView() {
             }
             : null;
 
+    const zoneUpdatePayload =
+        selectedObject &&
+            selectedObject.type === 'zone'
+            ? {
+                zone_name: zoneName,
+                zone_type: zoneType,
+                minimum_altitude_ft: minimumAltitude,
+                maximum_altitude_ft: maximumAltitude,
+            }
+            : null;
+
     const droneportPayload =
         droneportJson && droneportName.trim() && selectedSiteId
             ? {
@@ -248,6 +283,16 @@ export default function MapView() {
                 created_by: 'dronenav',
                 droneport_diameter_ft: droneportDiameter,
                 geometry: droneportJson,
+            }
+            : null;
+
+    const droneportUpdatePayload =
+        selectedObject &&
+            selectedObject.type === 'droneport'
+            ? {
+                droneport_diameter_ft: droneportDiameter,
+                droneport_name: droneportName,
+                droneport_type: droneportType,
             }
             : null;
 
@@ -288,6 +333,19 @@ export default function MapView() {
             }
             : null;
 
+    const routeUpdatePayload =
+        selectedObject &&
+            selectedObject.type === 'route'
+            ? {
+                route_name: routeName,
+                route_type: routeType,
+                minimum_aircraft_weight_lbs: minimumAircraftWeight,
+                maximum_aircraft_weight_lbs: maximumAircraftWeight,
+                buffered: routeBuffering,
+            }
+            : null;
+
+
     async function saveSite() {
         if (!sitePayload) {
             alert('Enter a site name and draw a boundary with at least 3 points.');
@@ -314,6 +372,7 @@ export default function MapView() {
 
             console.log('Site saved:', result);
             alert('Site saved successfully.');
+            clearPoints();
         } catch (error) {
             console.error('Save failed:', error);
             alert('Site save failed. Check browser console.');
@@ -346,6 +405,7 @@ export default function MapView() {
 
             console.log('Zone saved:', result);
             alert('Zone saved successfully.');
+            clearPoints();
         } catch (error) {
             console.error('Save failed:', error);
             alert('Zone save failed. Check browser console.');
@@ -378,6 +438,7 @@ export default function MapView() {
 
             console.log('Droneport saved:', result);
             alert('Droneport saved successfully.');
+            clearPoints();
         } catch (error) {
             console.error('Save failed:', error);
             alert('Droneport save failed. Check browser console.');
@@ -410,6 +471,7 @@ export default function MapView() {
 
             console.log('Route saved:', result);
             alert('Route saved successfully.');
+            clearPoints();
         } catch (error) {
             console.error('Route save failed:', error);
             alert('Route save failed. Check browser console.');
@@ -438,9 +500,6 @@ export default function MapView() {
             droneport: `https://api.dronenav.org/api/droneports/${data.droneport_id}`,
             route: `https://api.dronenav.org/api/routes/${data.route_id}`,
         };
-
-        console.log('Deleting selected object:', selectedObject);
-        console.log('Delete URL:', endpoints[type]);
 
         try {
             console.log('Deleting selected object:', selectedObject);
@@ -500,6 +559,189 @@ export default function MapView() {
         catch (error) {
             console.error('Delete failed:', error);
             alert('Delete failed. Check browser console.');
+        }
+    }
+
+    async function updateSelectedSite() {
+        if (!selectedObject || selectedObject.type !== 'site') {
+            alert('Select a site to update.');
+            return;
+        }
+
+        try {
+            const siteId = selectedObject.data.site_id;
+
+            console.log('Updating site:', siteId);
+            console.log('Payload:', JSON.stringify(siteUpdatePayload, null, 2));
+
+            const response = await fetch(
+                `https://api.dronenav.org/api/sites/${siteId}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(siteUpdatePayload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Update site error:', JSON.stringify(result, null, 2));
+                alert('Site update failed. Check browser console.');
+                return;
+            }
+
+            console.log('Site updated:', result);
+            alert('Site updated successfully.');
+
+            setSiteDescription('');
+            setMinimumAltitude(0);
+            setMaximumAltitude(400);
+            setSelectedObject(null);
+            await loadSites();
+        } catch (error) {
+            console.error('Site update failed:', error);
+            alert('Site update failed. Check browser console.');
+        }
+    }
+
+    async function updateSelectedZone() {
+        if (!selectedObject || selectedObject.type !== 'zone') {
+            alert('Select a Zone to update.');
+            return;
+        }
+
+        try {
+            const zoneId = selectedObject.data.zone_id;
+
+            console.log('Updating zone:', zoneId);
+            console.log('Payload:', JSON.stringify(zoneUpdatePayload, null, 2));
+
+            const response = await fetch(
+                `https://api.dronenav.org/api/zones/${zoneId}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(zoneUpdatePayload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Update zone error:', JSON.stringify(result, null, 2));
+                alert('Zone update failed. Check browser console.');
+                return;
+            }
+
+            console.log('Zone updated:', result);
+            alert('Zone updated successfully.');
+
+            setZoneName('');
+            setZoneType('restricted');
+            setMinimumAltitude(0);
+            setMaximumAltitude(400);
+            setSelectedObject(null);
+            await loadZones();
+        } catch (error) {
+            console.error('Zone update failed:', error);
+            alert('Zone update failed. Check browser console.');
+        }
+    }
+
+    async function updateSelectedDroneport() {
+        if (!selectedObject || selectedObject.type !== 'droneport') {
+            alert('Select a DronePort to update.');
+            return;
+        }
+
+        try {
+            const droneportId = selectedObject.data.droneport_id;
+
+            console.log('Updating droneport:', droneportId);
+            console.log('Payload:', JSON.stringify(droneportUpdatePayload, null, 2));
+
+            const response = await fetch(
+                `https://api.dronenav.org/api/droneports/${droneportId}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(droneportUpdatePayload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Update droneport error:', JSON.stringify(result, null, 2));
+                alert('DronePort update failed. Check browser console.');
+                return;
+            }
+
+            console.log('DronePort updated:', result);
+            alert('DronePort updated successfully.');
+
+            setDroneportName('');
+            setDroneportType('recreation');
+            setDroneportDiameter(25);
+            setSelectedObject(null);
+            await loadDroneports();
+        } catch (error) {
+            console.error('DronePort update failed:', error);
+            alert('DronePort update failed. Check browser console.');
+        }
+    }
+
+    async function updateSelectedRoute() {
+        if (!selectedObject || selectedObject.type !== 'route') {
+            alert('Select a Route to update.');
+            return;
+        }
+
+        try {
+            const routeId = selectedObject.data.route_id;
+
+            console.log('Updating route:', routeId);
+            console.log('Payload:', JSON.stringify(routeUpdatePayload, null, 2));
+
+            const response = await fetch(
+                `https://api.dronenav.org/api/routes/${routeId}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(routeUpdatePayload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Update route error:', JSON.stringify(result, null, 2));
+                alert('Route update failed. Check browser console.');
+                return;
+            }
+
+            console.log('Route updated:', result);
+            alert('Route updated successfully.');
+
+            setRouteName('');
+            setRouteType('open');
+            setMinimumAircraftWeight(4);
+            setMaximumAircraftWeight(50);
+            setRouteBuffering(0);
+            setSelectedObject(null);
+            await loadRoutes();
+        } catch (error) {
+            console.error('Route update failed:', error);
+            alert('Route update failed. Check browser console.');
         }
     }
 
@@ -795,6 +1037,165 @@ export default function MapView() {
                     </>
                 )}
 
+                {mapMode === 'update' && selectedObject && selectedObject.type === 'site' && (
+                    <>
+                        <h3>Update Site Attributes</h3>
+
+                        <input
+                            type="text"
+                            placeholder="Description"
+                            value={siteDescription}
+                            onChange={(e) => setSiteDescription(e.target.value)}
+                        />
+
+                        <input
+                            type="number"
+                            placeholder="Minimum altitude: (ft)"
+                            value={minimumAltitude}
+                            onChange={(e) => setMinimumAltitude(Number(e.target.value))}
+                        />
+
+                        <input
+                            type="number"
+                            placeholder="Maximum altitude: (ft)"
+                            value={maximumAltitude}
+                            onChange={(e) => setMaximumAltitude(Number(e.target.value))}
+                        />
+
+                        <button onClick={updateSelectedSite} style={{ marginLeft: '10px' }}>
+                            Update Site Attributes
+                        </button>
+                    </>
+                )}
+
+                {mapMode === 'update' && selectedObject && selectedObject.type === 'zone' && (
+                    <>
+                        <h3>Update Zone Attributes</h3>
+
+                        <input
+                            type="text"
+                            placeholder="New zone name"
+                            value={zoneName}
+                            onChange={(e) => setZoneName(e.target.value)}
+                        />
+
+                        <select
+                            value={zoneType}
+                            onChange={(e) => setZoneType(e.target.value)}
+                        >
+                            <option value="private">Closed</option>
+                            <option value="restricted">Restricted</option>
+                            <option value="caution">Hazardous</option>
+                            <option value="emergency">Emergency</option>
+                            <option value="open">Open</option>
+                            <option value="inclusion">Inclusion</option>
+                        </select>
+
+                        <input
+                            type="number"
+                            placeholder="Minimum altitude: (ft)"
+                            value={minimumAltitude}
+                            onChange={(e) => setMinimumAltitude(Number(e.target.value))}
+                        />
+
+                        <input
+                            type="number"
+                            placeholder="Maximum altitude: (ft)"
+                            value={maximumAltitude}
+                            onChange={(e) => setMaximumAltitude(Number(e.target.value))}
+                        />
+
+                        <button onClick={updateSelectedZone} style={{ marginLeft: '10px' }}>
+                            Update Zone Attributes
+                        </button>
+                    </>
+                )}
+
+                {mapMode === 'update' && selectedObject && selectedObject.type === 'droneport' && (
+                    <>
+                        <h3>Update DronePort Attributes</h3>
+
+                        <input
+                            type="text"
+                            placeholder="New droneport name"
+                            value={droneportName}
+                            onChange={(e) => setDroneportName(e.target.value)}
+                        />
+
+                        <select
+                            value={droneportType}
+                            onChange={(e) => setDroneportType(e.target.value)}
+                        >
+                            <option value="recreation">Recreation</option>
+                            <option value="education">Education</option>
+                            <option value="commercial">Commercial</option>
+                            <option value="emergency">Emergency</option>
+                            <option value="military">Military</option>
+                            <option value="government">Government</option>
+                            <option value="civil">Civil</option>
+                        </select>
+
+                        <input
+                            type="number"
+                            placeholder="Droneport diameter (ft):"
+                            value={droneportDiameter}
+                            onChange={(e) => setDroneportDiameter(Number(e.target.value))}
+                        />
+
+                        <button onClick={updateSelectedDroneport} style={{ marginLeft: '10px' }}>
+                            Update DronePort Attributes
+                        </button>
+                    </>
+                )}
+
+                {mapMode === 'update' && selectedObject && selectedObject.type === 'route' && (
+                    <>
+                        <h3>Update Route Attributes</h3>
+
+                        <input
+                            type="text"
+                            placeholder="New route name"
+                            value={routeName}
+                            onChange={(e) => setRouteName(e.target.value)}
+                        />
+
+                        <select
+                            value={routeType}
+                            onChange={(e) => setRouteType(e.target.value)}
+                        >
+                            <option value="open">Open</option>
+                            <option value="commercial">Commercial</option>
+                            <option value="emergency">Emergency</option>
+                            <option value="raceway">Raceway</option>
+                        </select>
+
+                        <input
+                            type="number"
+                            placeholder="Buffer"
+                            value={routeBuffering}
+                            onChange={(e) => setRouteBuffering(Number(e.target.value))}
+                        />
+
+                        <input
+                            type="number"
+                            placeholder="Minimum aircraft wgt: (lbs)"
+                            value={minimumAircraftWeight}
+                            onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
+                        />
+
+                        <input
+                            type="number"
+                            placeholder="Maximum aircraft wgt: (lbs)"
+                            value={maximumAircraftWeight}
+                            onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
+                        />
+
+                        <button onClick={updateSelectedRoute} style={{ marginLeft: '10px' }}>
+                            Update Route Attributes
+                        </button>
+                    </>
+                )}
+
             </div>
 
             {mapMode === 'create_site' && sitePayload && (
@@ -849,7 +1250,7 @@ export default function MapView() {
                     <pre>{JSON.stringify(selectedObject, null, 2)}</pre>
                 </div>
             )}
-
+            
             <div style={{ padding: '10px' }}>
                 Current Center: {currentCenter[0].toFixed(6)},{' '}
                 {currentCenter[1].toFixed(6)}
@@ -857,12 +1258,12 @@ export default function MapView() {
 
             <MapContainer
                 center={mapCenter}
-                zoom={13}
+                zoom={DEFAULT_MAP_ZOOM}
                 style={{ height: '600px', width: '100%' }}
             >
                 <TileLayer
-                    attribution="&copy; OpenStreetMap contributors"
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution={MAP_TILE_ATTRIBUTION}
+                    url={MAP_TILE_URL}
                 />
 
                 <MapClickHandler onMapClick={handleMapClick} />
@@ -935,6 +1336,12 @@ export default function MapView() {
                                             type: 'site',
                                             data: site,
                                         });
+
+                                        if (mapMode === 'update') {
+                                            setSiteDescription(site.description || '');
+                                            setMinimumAltitude(site.minimum_altitude_ft ?? 0);
+                                            setMaximumAltitude(site.maximum_altitude_ft ?? 400);
+                                        }
                                     }
                                 },
                             }}
@@ -954,6 +1361,8 @@ export default function MapView() {
                                     Site ID: {site.site_id}
                                     <br />
                                     Created by: {site.created_by}
+                                    <br />
+                                    Description: {site.description}
                                 </Popup>
                             )}
                         </Polygon>
@@ -994,6 +1403,13 @@ export default function MapView() {
                                             type: 'zone',
                                             data: zone,
                                         });
+
+                                        if (mapMode === 'update') {
+                                            setZoneName(zone.zone_name);
+                                            setZoneType(zone.zone_type);
+                                            setMinimumAltitude(zone.minimum_altitude_ft ?? 0);
+                                            setMaximumAltitude(zone.maximum_altitude_ft ?? 400);
+                                        }
                                     }
                                 },
                             }}
@@ -1051,6 +1467,12 @@ export default function MapView() {
                                             type: 'droneport',
                                             data: droneport,
                                         });
+
+                                        if (mapMode === 'update') {
+                                            setDroneportName(droneport.droneport_name);
+                                            setDroneportType(droneport.droneport_type);
+                                            setDroneportDiameter(droneport.droneport_diameter_ft ?? 25);
+                                        }
                                     }
                                 },
                             }}
@@ -1092,7 +1514,8 @@ export default function MapView() {
                             ])}
                             pathOptions={{
                                 color: 'green',
-                                weight: 2,
+                                weight: mapMode === 'update' || mapMode === 'delete' ? 6 : 2,
+                                opacity: 0.8,
                                 dashArray: route.operational_status === 'active' ? null : '4, 8',
                             }}
                             bubblingMouseEvents={false}
@@ -1108,6 +1531,14 @@ export default function MapView() {
                                             type: 'route',
                                             data: route,
                                         });
+
+                                        if (mapMode === 'update') {
+                                            setRouteName(route.route_name);
+                                            setRouteType(route.route_type);
+                                            setMinimumAircraftWeight(route.minimum_aircraft_weight_lbs ?? 4);
+                                            setMaximumAircraftWeight(route.maximum_aircraft_weight_lbs ?? 50);
+                                            setRouteBuffering(route.buffered ?? 0);
+                                        }
                                     }
                                 },
                             }}
