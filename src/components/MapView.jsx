@@ -130,7 +130,10 @@ function getRouteDirectionLabel(direction) {
     return 'Unknown';
 }
 
-export default function MapView() {
+export default function MapView({
+    readOnly = false,
+    siteId = null,
+}) {
     const [points, setPoints] = useState([]);
     const [mapMode, setMapMode] = useState('view');
     const [siteName, setSiteName] = useState('');
@@ -182,6 +185,10 @@ export default function MapView() {
     );
 
     function handleMapClick(latlng) {
+        if (readOnly) {
+            return;
+        }
+
         if (
             mapMode !== 'create_site' &&
             mapMode !== 'create_zone' &&
@@ -286,6 +293,43 @@ export default function MapView() {
             alert('Load routes failed. Check browser console.');
         }
     }
+
+    async function loadOverlayPackage(packageSiteId) {
+        if (!packageSiteId) {
+            alert('Missing site id for overlay package.');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/sites/${packageSiteId}/package`
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Load overlay package error:', JSON.stringify(result, null, 2));
+                alert('Failed to load overlay package.');
+                return;
+            }
+
+            setSavedSites(result.site ? [result.site] : []);
+            setSavedZones(result.zones || []);
+            setSavedDroneports(result.droneports || []);
+            setSavedRoutes(result.routes || []);
+
+            console.log('Loaded overlay package:', result);
+        } catch (error) {
+            console.error('Load overlay package failed:', error);
+            alert('Load overlay package failed. Check browser console.');
+        }
+    }
+
+    useEffect(() => {
+        if (readOnly && siteId) {
+            loadOverlayPackage(siteId);
+        }
+    }, [readOnly, siteId]);
 
     const polygonPositions = points.map((point) => [point.lat, point.lng]);
 
@@ -837,479 +881,481 @@ export default function MapView() {
 
     return (
         <div>
-            <div style={{ padding: '10px' }}>
+            {!readOnly && (
+                <div style={{ padding: '10px' }}>
 
-                <h3>Map Mode</h3>
+                    <h3>Map Mode</h3>
 
-                <select
-                    value={mapMode}
-                    onChange={(e) => {
-                        setMapMode(e.target.value);
-                        clearPoints();
-                        setSelectedObject(null);
-                    }}
-                >
-                    <option value="view">View</option>
-                    <option value="create_site">Create Site</option>
-                    <option value="create_zone">Create Zone</option>
-                    <option value="create_droneport">Create DronePort</option>
-                    <option value="create_route">Create Route</option>
-                    <option value="update">Update</option>
-                    <option value="delete">Delete</option>
-                </select>
+                    <select
+                        value={mapMode}
+                        onChange={(e) => {
+                            setMapMode(e.target.value);
+                            clearPoints();
+                            setSelectedObject(null);
+                        }}
+                    >
+                        <option value="view">View</option>
+                        <option value="create_site">Create Site</option>
+                        <option value="create_zone">Create Zone</option>
+                        <option value="create_droneport">Create DronePort</option>
+                        <option value="create_route">Create Route</option>
+                        <option value="update">Update</option>
+                        <option value="delete">Delete</option>
+                    </select>
 
-                <span style={{ marginLeft: '20px' }}>
-                    <strong>{pointLabel}:</strong> {points.length}
-                </span>
+                    <span style={{ marginLeft: '20px' }}>
+                        <strong>{pointLabel}:</strong> {points.length}
+                    </span>
 
-                <button onClick={undoLastPoint} style={{ marginLeft: '10px' }}>
-                    Undo Last Point
-                </button>
+                    <button onClick={undoLastPoint} style={{ marginLeft: '10px' }}>
+                        Undo Last Point
+                    </button>
 
-                <button onClick={clearPoints} style={{ marginLeft: '10px' }}>
-                    Clear Points
-                </button>
+                    <button onClick={clearPoints} style={{ marginLeft: '10px' }}>
+                        Clear Points
+                    </button>
 
-                <button onClick={() => setMapCenter(currentCenter)} style={{ marginLeft: '10px' }}>
-                    Set Home Center
-                </button>
+                    <button onClick={() => setMapCenter(currentCenter)} style={{ marginLeft: '10px' }}>
+                        Set Home Center
+                    </button>
 
-                <button onClick={loadSites} style={{ marginLeft: '10px' }}>
-                    Load Sites
-                </button>
+                    <button onClick={loadSites} style={{ marginLeft: '10px' }}>
+                        Load Sites
+                    </button>
 
-                <button onClick={loadZones} style={{ marginLeft: '10px' }}>
-                    Load Zones
-                </button>
+                    <button onClick={loadZones} style={{ marginLeft: '10px' }}>
+                        Load Zones
+                    </button>
 
-                <button onClick={loadDroneports} style={{ marginLeft: '10px' }}>
-                    Load DronePorts
-                </button>
+                    <button onClick={loadDroneports} style={{ marginLeft: '10px' }}>
+                        Load DronePorts
+                    </button>
 
-                <button onClick={loadRoutes} style={{ marginLeft: '10px' }}>
-                    Load Routes
-                </button>
+                    <button onClick={loadRoutes} style={{ marginLeft: '10px' }}>
+                        Load Routes
+                    </button>
 
-                {mapMode === 'create_site' && (
-                    <>
-                        <h3>Create Site</h3>
+                    {mapMode === 'create_site' && (
+                        <>
+                            <h3>Create Site</h3>
 
-                        <label>
-                            Site Name:{' '}
+                            <label>
+                                Site Name:{' '}
+                                <input
+                                    type="text"
+                                    placeholder="Site Name"
+                                    value={siteName}
+                                    onChange={(e) => setSiteName(e.target.value)}
+                                />
+                            </label>
+
                             <input
                                 type="text"
-                                placeholder="Site Name"
-                                value={siteName}
-                                onChange={(e) => setSiteName(e.target.value)}
+                                placeholder="Description"
+                                value={siteDescription}
+                                onChange={(e) => setSiteDescription(e.target.value)}
                             />
-                        </label>
 
-                        <input
-                            type="text"
-                            placeholder="Description"
-                            value={siteDescription}
-                            onChange={(e) => setSiteDescription(e.target.value)}
-                        />
+                            <select value={siteType} onChange={(e) => setSiteType(e.target.value)}>
+                                <option value="school">School</option>
+                                <option value="park">Park</option>
+                                <option value="commercial">Commercial</option>
+                                <option value="private">Private</option>
+                                <option value="government">Government</option>
+                                <option value="residential">Residential</option>
+                            </select>
 
-                        <select value={siteType} onChange={(e) => setSiteType(e.target.value)}>
-                            <option value="school">School</option>
-                            <option value="park">Park</option>
-                            <option value="commercial">Commercial</option>
-                            <option value="private">Private</option>
-                            <option value="government">Government</option>
-                            <option value="residential">Residential</option>
-                        </select>
+                            <button onClick={saveSite} style={{ marginLeft: '10px' }}>
+                                Save Site
+                            </button>
+                        </>
+                    )}
 
-                        <button onClick={saveSite} style={{ marginLeft: '10px' }}>
-                            Save Site
-                        </button>
-                    </>
-                )}
+                    {mapMode === 'create_zone' && (
+                        <>
+                            <h3>Create Zone</h3>
 
-                {mapMode === 'create_zone' && (
-                    <>
-                        <h3>Create Zone</h3>
+                            <select
+                                value={selectedSiteId}
+                                onChange={(e) => setSelectedSiteId(e.target.value)}
+                            >
+                                <option value="">Select Site</option>
+                                {savedSites.map((site) => (
+                                    <option key={site.site_id} value={site.site_id}>
+                                        {site.site_name}
+                                    </option>
+                                ))}
+                            </select>
 
-                        <select
-                            value={selectedSiteId}
-                            onChange={(e) => setSelectedSiteId(e.target.value)}
-                        >
-                            <option value="">Select Site</option>
-                            {savedSites.map((site) => (
-                                <option key={site.site_id} value={site.site_id}>
-                                    {site.site_name}
-                                </option>
-                            ))}
-                        </select>
+                            <input
+                                type="text"
+                                placeholder="Zone Name"
+                                value={zoneName}
+                                onChange={(e) => setZoneName(e.target.value)}
+                            />
 
-                        <input
-                            type="text"
-                            placeholder="Zone Name"
-                            value={zoneName}
-                            onChange={(e) => setZoneName(e.target.value)}
-                        />
+                            <select
+                                value={zoneType}
+                                onChange={(e) => setZoneType(e.target.value)}
+                            >
+                                <option value="private">Closed</option>
+                                <option value="restricted">Restricted</option>
+                                <option value="caution">Hazardous</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="open">Open</option>
+                                <option value="inclusion">Inclusion</option>
+                            </select>
 
-                        <select
-                            value={zoneType}
-                            onChange={(e) => setZoneType(e.target.value)}
-                        >
-                            <option value="private">Closed</option>
-                            <option value="restricted">Restricted</option>
-                            <option value="caution">Hazardous</option>
-                            <option value="emergency">Emergency</option>
-                            <option value="open">Open</option>
-                            <option value="inclusion">Inclusion</option>
-                        </select>
+                            <button onClick={saveZone} style={{ marginLeft: '10px' }}>
+                                Save Zone
+                            </button>
+                        </>
+                    )}
 
-                        <button onClick={saveZone} style={{ marginLeft: '10px' }}>
-                            Save Zone
-                        </button>
-                    </>
-                )}
+                    {mapMode === 'create_droneport' && (
+                        <>
+                            <h3>Create DronePort</h3>
 
-                {mapMode === 'create_droneport' && (
-                    <>
-                        <h3>Create DronePort</h3>
+                            <select
+                                value={selectedSiteId}
+                                onChange={(e) => setSelectedSiteId(e.target.value)}
+                            >
+                                <option value="">Select Site</option>
+                                {savedSites.map((site) => (
+                                    <option key={site.site_id} value={site.site_id}>
+                                        {site.site_name}
+                                    </option>
+                                ))}
+                            </select>
 
-                        <select
-                            value={selectedSiteId}
-                            onChange={(e) => setSelectedSiteId(e.target.value)}
-                        >
-                            <option value="">Select Site</option>
-                            {savedSites.map((site) => (
-                                <option key={site.site_id} value={site.site_id}>
-                                    {site.site_name}
-                                </option>
-                            ))}
-                        </select>
+                            <input
+                                type="text"
+                                placeholder="DronePort Name"
+                                value={droneportName}
+                                onChange={(e) => setDroneportName(e.target.value)}
+                            />
 
-                        <input
-                            type="text"
-                            placeholder="DronePort Name"
-                            value={droneportName}
-                            onChange={(e) => setDroneportName(e.target.value)}
-                        />
+                            <select
+                                value={droneportType}
+                                onChange={(e) => setDroneportType(e.target.value)}
+                            >
+                                <option value="recreation">Recreation</option>
+                                <option value="education">Education</option>
+                                <option value="commercial">Commercial</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="military">Military</option>
+                                <option value="government">Government</option>
+                                <option value="civil">Civil</option>
+                            </select>
 
-                        <select
-                            value={droneportType}
-                            onChange={(e) => setDroneportType(e.target.value)}
-                        >
-                            <option value="recreation">Recreation</option>
-                            <option value="education">Education</option>
-                            <option value="commercial">Commercial</option>
-                            <option value="emergency">Emergency</option>
-                            <option value="military">Military</option>
-                            <option value="government">Government</option>
-                            <option value="civil">Civil</option>
-                        </select>
+                            <input
+                                type="number"
+                                placeholder="Diameter ft"
+                                value={droneportDiameter}
+                                onChange={(e) => setDroneportDiameter(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Diameter ft"
-                            value={droneportDiameter}
-                            onChange={(e) => setDroneportDiameter(Number(e.target.value))}
-                        />
+                            <button onClick={saveDroneport} style={{ marginLeft: '10px' }}>
+                                Save DronePort
+                            </button>
+                        </>
+                    )}
 
-                        <button onClick={saveDroneport} style={{ marginLeft: '10px' }}>
-                            Save DronePort
-                        </button>
-                    </>
-                )}
+                    {mapMode === 'create_route' && (
+                        <>
+                            <h3>Create Route</h3>
 
-                {mapMode === 'create_route' && (
-                    <>
-                        <h3>Create Route</h3>
+                            <select
+                                value={originSelectedSiteId}
+                                onChange={(e) => {
+                                    setOriginSelectedSiteId(e.target.value);
+                                    setOriginSelectedDroneportId('');
+                                }}
+                            >
+                                <option value="">Select Origin Site</option>
+                                {savedSites.map((site) => (
+                                    <option key={site.site_id} value={site.site_id}>
+                                        {site.site_name}
+                                    </option>
+                                ))}
+                            </select>
 
-                        <select
-                            value={originSelectedSiteId}
-                            onChange={(e) => {
-                                setOriginSelectedSiteId(e.target.value);
-                                setOriginSelectedDroneportId('');
-                            }}
-                        >
-                            <option value="">Select Origin Site</option>
-                            {savedSites.map((site) => (
-                                <option key={site.site_id} value={site.site_id}>
-                                    {site.site_name}
-                                </option>
-                            ))}
-                        </select>
+                            <select
+                                value={destinationSelectedSiteId}
+                                onChange={(e) => {
+                                    setDestinationSelectedSiteId(e.target.value);
+                                    setDestinationSelectedDroneportId('');
+                                }}
+                            >
+                                <option value="">Select Destination Site</option>
+                                {savedSites.map((site) => (
+                                    <option key={site.site_id} value={site.site_id}>
+                                        {site.site_name}
+                                    </option>
+                                ))}
+                            </select>
 
-                        <select
-                            value={destinationSelectedSiteId}
-                            onChange={(e) => {
-                                setDestinationSelectedSiteId(e.target.value);
-                                setDestinationSelectedDroneportId('');
-                            }}
-                        >
-                            <option value="">Select Destination Site</option>
-                            {savedSites.map((site) => (
-                                <option key={site.site_id} value={site.site_id}>
-                                    {site.site_name}
-                                </option>
-                            ))}
-                        </select>
+                            <select
+                                value={originSelectedDroneportId}
+                                onChange={(e) => setOriginSelectedDroneportId(e.target.value)}
+                            >
+                                <option value="">Select Origin DronePort</option>
+                                {originDroneports.map((droneport) => (
+                                    <option key={droneport.droneport_id} value={droneport.droneport_id}>
+                                        {droneport.droneport_name}
+                                    </option>
+                                ))}
+                            </select>
 
-                        <select
-                            value={originSelectedDroneportId}
-                            onChange={(e) => setOriginSelectedDroneportId(e.target.value)}
-                        >
-                            <option value="">Select Origin DronePort</option>
-                            {originDroneports.map((droneport) => (
-                                <option key={droneport.droneport_id} value={droneport.droneport_id}>
-                                    {droneport.droneport_name}
-                                </option>
-                            ))}
-                        </select>
+                            <select
+                                value={destinationSelectedDroneportId}
+                                onChange={(e) => setDestinationSelectedDroneportId(e.target.value)}
+                            >
+                                <option value="">Select Destination DronePort</option>
+                                {destinationDroneports.map((droneport) => (
+                                    <option key={droneport.droneport_id} value={droneport.droneport_id}>
+                                        {droneport.droneport_name}
+                                    </option>
+                                ))}
+                            </select>
 
-                        <select
-                            value={destinationSelectedDroneportId}
-                            onChange={(e) => setDestinationSelectedDroneportId(e.target.value)}
-                        >
-                            <option value="">Select Destination DronePort</option>
-                            {destinationDroneports.map((droneport) => (
-                                <option key={droneport.droneport_id} value={droneport.droneport_id}>
-                                    {droneport.droneport_name}
-                                </option>
-                            ))}
-                        </select>
+                            <input
+                                type="text"
+                                placeholder="Route Name"
+                                value={routeName}
+                                onChange={(e) => setRouteName(e.target.value)}
+                            />
 
-                        <input
-                            type="text"
-                            placeholder="Route Name"
-                            value={routeName}
-                            onChange={(e) => setRouteName(e.target.value)}
-                        />
+                            <select
+                                value={routeType}
+                                onChange={(e) => setRouteType(e.target.value)}
+                            >
+                                <option value="open">Open</option>
+                                <option value="commercial">Commercial</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="raceway">Raceway</option>
+                            </select>
 
-                        <select
-                            value={routeType}
-                            onChange={(e) => setRouteType(e.target.value)}
-                        >
-                            <option value="open">Open</option>
-                            <option value="commercial">Commercial</option>
-                            <option value="emergency">Emergency</option>
-                            <option value="raceway">Raceway</option>
-                        </select>
+                            <input
+                                type="number"
+                                placeholder="4"
+                                value={minimumAircraftWeight}
+                                onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="4"
-                            value={minimumAircraftWeight}
-                            onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
-                        />
+                            <input
+                                type="number"
+                                placeholder="50"
+                                value={maximumAircraftWeight}
+                                onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="50"
-                            value={maximumAircraftWeight}
-                            onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
-                        />
+                            <select
+                                value={routeDirection}
+                                onChange={(e) => setRouteDirection(e.target.value)}
+                            >
+                                <option value="2">Bi-directional</option>
+                                <option value="0">One-way</option>
+                                <option value="1">Reverse</option>
+                            </select>
 
-                        <select
-                            value={routeDirection}
-                            onChange={(e) => setRouteDirection(e.target.value)}
-                        >
-                            <option value="2">Bi-directional</option>
-                            <option value="0">One-way</option>
-                            <option value="1">Reverse</option>
-                        </select>
+                            <input
+                                type="number"
+                                placeholder="0"
+                                value={routeBuffering}
+                                onChange={(e) => setRouteBuffering(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="0"
-                            value={routeBuffering}
-                            onChange={(e) => setRouteBuffering(Number(e.target.value))}
-                        />
+                            <button onClick={saveRoute} style={{ marginLeft: '10px' }}>
+                                Save Route
+                            </button>
+                        </>
+                    )}
 
-                        <button onClick={saveRoute} style={{ marginLeft: '10px' }}>
-                            Save Route
-                        </button>
-                    </>
-                )}
+                    {mapMode === 'update' && selectedObject && selectedObject.type === 'site' && (
+                        <>
+                            <h3>Update Site Attributes</h3>
 
-                {mapMode === 'update' && selectedObject && selectedObject.type === 'site' && (
-                    <>
-                        <h3>Update Site Attributes</h3>
+                            <input
+                                type="text"
+                                placeholder="Description"
+                                value={siteDescription}
+                                onChange={(e) => setSiteDescription(e.target.value)}
+                            />
 
-                        <input
-                            type="text"
-                            placeholder="Description"
-                            value={siteDescription}
-                            onChange={(e) => setSiteDescription(e.target.value)}
-                        />
+                            <input
+                                type="number"
+                                placeholder="Minimum altitude: (ft)"
+                                value={minimumAltitude}
+                                onChange={(e) => setMinimumAltitude(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Minimum altitude: (ft)"
-                            value={minimumAltitude}
-                            onChange={(e) => setMinimumAltitude(Number(e.target.value))}
-                        />
+                            <input
+                                type="number"
+                                placeholder="Maximum altitude: (ft)"
+                                value={maximumAltitude}
+                                onChange={(e) => setMaximumAltitude(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Maximum altitude: (ft)"
-                            value={maximumAltitude}
-                            onChange={(e) => setMaximumAltitude(Number(e.target.value))}
-                        />
+                            <button onClick={updateSelectedSite} style={{ marginLeft: '10px' }}>
+                                Update Site Attributes
+                            </button>
+                        </>
+                    )}
 
-                        <button onClick={updateSelectedSite} style={{ marginLeft: '10px' }}>
-                            Update Site Attributes
-                        </button>
-                    </>
-                )}
+                    {mapMode === 'update' && selectedObject && selectedObject.type === 'zone' && (
+                        <>
+                            <h3>Update Zone Attributes</h3>
 
-                {mapMode === 'update' && selectedObject && selectedObject.type === 'zone' && (
-                    <>
-                        <h3>Update Zone Attributes</h3>
+                            <input
+                                type="text"
+                                placeholder="New zone name"
+                                value={zoneName}
+                                onChange={(e) => setZoneName(e.target.value)}
+                            />
 
-                        <input
-                            type="text"
-                            placeholder="New zone name"
-                            value={zoneName}
-                            onChange={(e) => setZoneName(e.target.value)}
-                        />
+                            <select
+                                value={zoneType}
+                                onChange={(e) => setZoneType(e.target.value)}
+                            >
+                                <option value="private">Closed</option>
+                                <option value="restricted">Restricted</option>
+                                <option value="caution">Hazardous</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="open">Open</option>
+                                <option value="inclusion">Inclusion</option>
+                            </select>
 
-                        <select
-                            value={zoneType}
-                            onChange={(e) => setZoneType(e.target.value)}
-                        >
-                            <option value="private">Closed</option>
-                            <option value="restricted">Restricted</option>
-                            <option value="caution">Hazardous</option>
-                            <option value="emergency">Emergency</option>
-                            <option value="open">Open</option>
-                            <option value="inclusion">Inclusion</option>
-                        </select>
+                            <input
+                                type="number"
+                                placeholder="Minimum altitude: (ft)"
+                                value={minimumAltitude}
+                                onChange={(e) => setMinimumAltitude(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Minimum altitude: (ft)"
-                            value={minimumAltitude}
-                            onChange={(e) => setMinimumAltitude(Number(e.target.value))}
-                        />
+                            <input
+                                type="number"
+                                placeholder="Maximum altitude: (ft)"
+                                value={maximumAltitude}
+                                onChange={(e) => setMaximumAltitude(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Maximum altitude: (ft)"
-                            value={maximumAltitude}
-                            onChange={(e) => setMaximumAltitude(Number(e.target.value))}
-                        />
+                            <button onClick={updateSelectedZone} style={{ marginLeft: '10px' }}>
+                                Update Zone Attributes
+                            </button>
+                        </>
+                    )}
 
-                        <button onClick={updateSelectedZone} style={{ marginLeft: '10px' }}>
-                            Update Zone Attributes
-                        </button>
-                    </>
-                )}
+                    {mapMode === 'update' && selectedObject && selectedObject.type === 'droneport' && (
+                        <>
+                            <h3>Update DronePort Attributes</h3>
 
-                {mapMode === 'update' && selectedObject && selectedObject.type === 'droneport' && (
-                    <>
-                        <h3>Update DronePort Attributes</h3>
+                            <input
+                                type="text"
+                                placeholder="New droneport name"
+                                value={droneportName}
+                                onChange={(e) => setDroneportName(e.target.value)}
+                            />
 
-                        <input
-                            type="text"
-                            placeholder="New droneport name"
-                            value={droneportName}
-                            onChange={(e) => setDroneportName(e.target.value)}
-                        />
+                            <select
+                                value={droneportType}
+                                onChange={(e) => setDroneportType(e.target.value)}
+                            >
+                                <option value="recreation">Recreation</option>
+                                <option value="education">Education</option>
+                                <option value="commercial">Commercial</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="military">Military</option>
+                                <option value="government">Government</option>
+                                <option value="civil">Civil</option>
+                            </select>
 
-                        <select
-                            value={droneportType}
-                            onChange={(e) => setDroneportType(e.target.value)}
-                        >
-                            <option value="recreation">Recreation</option>
-                            <option value="education">Education</option>
-                            <option value="commercial">Commercial</option>
-                            <option value="emergency">Emergency</option>
-                            <option value="military">Military</option>
-                            <option value="government">Government</option>
-                            <option value="civil">Civil</option>
-                        </select>
+                            <input
+                                type="number"
+                                placeholder="Droneport diameter (ft):"
+                                value={droneportDiameter}
+                                onChange={(e) => setDroneportDiameter(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Droneport diameter (ft):"
-                            value={droneportDiameter}
-                            onChange={(e) => setDroneportDiameter(Number(e.target.value))}
-                        />
+                            <button onClick={updateSelectedDroneport} style={{ marginLeft: '10px' }}>
+                                Update DronePort Attributes
+                            </button>
+                        </>
+                    )}
 
-                        <button onClick={updateSelectedDroneport} style={{ marginLeft: '10px' }}>
-                            Update DronePort Attributes
-                        </button>
-                    </>
-                )}
+                    {mapMode === 'update' && selectedObject && selectedObject.type === 'route' && (
+                        <>
+                            <h3>Update Route Attributes</h3>
 
-                {mapMode === 'update' && selectedObject && selectedObject.type === 'route' && (
-                    <>
-                        <h3>Update Route Attributes</h3>
+                            <input
+                                type="text"
+                                placeholder="New route name"
+                                value={routeName}
+                                onChange={(e) => setRouteName(e.target.value)}
+                            />
 
-                        <input
-                            type="text"
-                            placeholder="New route name"
-                            value={routeName}
-                            onChange={(e) => setRouteName(e.target.value)}
-                        />
+                            <select
+                                value={routeType}
+                                onChange={(e) => setRouteType(e.target.value)}
+                            >
+                                <option value="open">Open</option>
+                                <option value="commercial">Commercial</option>
+                                <option value="emergency">Emergency</option>
+                                <option value="raceway">Raceway</option>
+                            </select>
 
-                        <select
-                            value={routeType}
-                            onChange={(e) => setRouteType(e.target.value)}
-                        >
-                            <option value="open">Open</option>
-                            <option value="commercial">Commercial</option>
-                            <option value="emergency">Emergency</option>
-                            <option value="raceway">Raceway</option>
-                        </select>
+                            <input
+                                type="number"
+                                placeholder="Buffer"
+                                value={routeBuffering}
+                                onChange={(e) => setRouteBuffering(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Buffer"
-                            value={routeBuffering}
-                            onChange={(e) => setRouteBuffering(Number(e.target.value))}
-                        />
+                            <input
+                                type="number"
+                                placeholder="Minimum aircraft wgt: (lbs)"
+                                value={minimumAircraftWeight}
+                                onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Minimum aircraft wgt: (lbs)"
-                            value={minimumAircraftWeight}
-                            onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
-                        />
+                            <input
+                                type="number"
+                                placeholder="Maximum aircraft wgt: (lbs)"
+                                value={maximumAircraftWeight}
+                                onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
+                            />
 
-                        <input
-                            type="number"
-                            placeholder="Maximum aircraft wgt: (lbs)"
-                            value={maximumAircraftWeight}
-                            onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
-                        />
+                            <button onClick={updateSelectedRoute} style={{ marginLeft: '10px' }}>
+                                Update Route Attributes
+                            </button>
+                        </>
+                    )}
 
-                        <button onClick={updateSelectedRoute} style={{ marginLeft: '10px' }}>
-                            Update Route Attributes
-                        </button>
-                    </>
-                )}
+                </div>
+            )}
 
-            </div>
-
-            {mapMode === 'create_site' && sitePayload && (
+            {!readOnly && mapMode === 'create_site' && sitePayload && (
                 <div style={{ padding: '10px' }}>
                     <h3>Site Payload Preview</h3>
                     <pre>{JSON.stringify(sitePayload, null, 2)}</pre>
                 </div>
             )}
 
-            {mapMode === 'create_zone' && zonePayload && (
+            {!readOnly && mapMode === 'create_zone' && zonePayload && (
                 <div style={{ padding: '10px' }}>
                     <h3>Zone Payload Preview</h3>
                     <pre>{JSON.stringify(zonePayload, null, 2)}</pre>
                 </div>
             )}
 
-            {mapMode === 'create_droneport' && droneportPayload && (
+            {!readOnly && mapMode === 'create_droneport' && droneportPayload && (
                 <div style={{ padding: '10px' }}>
                     <h3>DronePort Payload Preview</h3>
                     <pre>{JSON.stringify(droneportPayload, null, 2)}</pre>
                 </div>
             )}
 
-            {mapMode === 'create_route' && routePayload && (
+            {!readOnly && mapMode === 'create_route' && routePayload && (
                 <div style={{ padding: '10px' }}>
                     <h3>Route Payload Preview</h3>
                     <pre>{JSON.stringify(routePayload, null, 2)}</pre>
@@ -1317,7 +1363,7 @@ export default function MapView() {
             )}
 
 
-            {selectedObject && (
+            {!readOnly && selectedObject && (
                 <div style={{ padding: '10px' }}>
                     <h3>Selected Object</h3>
 
@@ -1341,10 +1387,12 @@ export default function MapView() {
                 </div>
             )}
 
-            <div style={{ padding: '10px' }}>
-                Current Center: {currentCenter[0].toFixed(6)},{' '}
-                {currentCenter[1].toFixed(6)}
-            </div>
+            {!readOnly && (
+                <div style={{ padding: '10px' }}>
+                    Current Center: {currentCenter[0].toFixed(6)},{' '}
+                    {currentCenter[1].toFixed(6)}
+                </div>
+            )}
 
             <MapContainer
                 center={mapCenter}
