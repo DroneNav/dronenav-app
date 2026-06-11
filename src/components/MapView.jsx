@@ -61,7 +61,7 @@ function RouteArrows({ positions, direction }) {
             {
                 patterns: [
                     {
-                        offset: '25%',
+                        offset: '5%',
                         repeat: '20%',
                         symbol: L.Symbol.arrowHead({
                             pixelSize: 6,
