@@ -70,6 +70,7 @@ function RouteArrows({ positions, direction }) {
                                 color: 'green',
                                 stroke: true,
                                 weight: 2,
+                                interactive: false,
                             },
                         }),
                     },
@@ -85,6 +86,48 @@ function RouteArrows({ positions, direction }) {
     }, [map, positions, direction]);
 
     return null;
+}
+
+function offsetPositions(positions, offsetFeet) {
+    const offsetDegrees = (offsetFeet * 0.3048) / 111320;
+
+    return positions.map((position, index) => {
+        const previous = positions[index - 1] || position;
+        const next = positions[index + 1] || position;
+
+        const dx = next[1] - previous[1];
+        const dy = next[0] - previous[0];
+
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        if (length === 0) {
+            return position;
+        }
+
+        const offsetLat = (-dx / length) * offsetDegrees;
+        const offsetLng = (dy / length) * offsetDegrees;
+
+        return [
+            position[0] + offsetLat,
+            position[1] + offsetLng,
+        ];
+    });
+}
+
+function getRouteDirectionLabel(direction) {
+    if (direction === 0) {
+        return 'One-way';
+    }
+
+    if (direction === 1) {
+        return 'Reverse';
+    }
+
+    if (direction === 2) {
+        return 'Bi-directional';
+    }
+
+    return 'Unknown';
 }
 
 export default function MapView() {
@@ -1552,84 +1595,162 @@ export default function MapView() {
                             Array.isArray(route.geometry.coordinates) &&
                             route.geometry.coordinates.length >= 4
                     )
-                    .map((route) => (
-                        <Polyline
-                            key={`${route.route_id}-${mapMode}`}
-                            positions={route.geometry.coordinates.map((coordinate) => [
-                                coordinate[1],
-                                coordinate[0],
-                            ])}
-                            pathOptions={{
-                                color: 'green',
-                                weight: mapMode === 'update' || mapMode === 'delete' ? 6 : 2,
-                                opacity: 0.8,
-                                dashArray: route.operational_status === 'active' ? null : '4, 8',
-                            }}
-                            bubblingMouseEvents={false}
-                            interactive={
-                                mapMode === 'view' ||
-                                mapMode === 'update' ||
-                                mapMode === 'delete'
-                            }
-                            eventHandlers={{
-                                click: () => {
-                                    if (mapMode === 'update' || mapMode === 'delete') {
-                                        setSelectedObject({
-                                            type: 'route',
-                                            data: route,
-                                        });
+                    .map((route) => {
+                        const routePositions = route.geometry.coordinates.map((coordinate) => [
+                            coordinate[1],
+                            coordinate[0],
+                        ]);
 
-                                        if (mapMode === 'update') {
-                                            setRouteName(route.route_name);
-                                            setRouteType(route.route_type);
-                                            setMinimumAircraftWeight(route.minimum_aircraft_weight_lbs ?? 4);
-                                            setMaximumAircraftWeight(route.maximum_aircraft_weight_lbs ?? 50);
-                                            setRouteBuffering(route.buffered ?? 0);
-                                        }
+                        const leftRoutePositions = offsetPositions(routePositions, 5);
+                        const rightRoutePositions = offsetPositions(routePositions, -5);
+
+                        const routePathOptions = {
+                            color: 'green',
+                            weight: mapMode === 'update' || mapMode === 'delete' ? 6 : 2,
+                            opacity: 0.8,
+                            dashArray: route.operational_status === 'active' ? null : '4, 8',
+                        };
+
+                        const selectRoute = () => {
+                            if (mapMode === 'update' || mapMode === 'delete') {
+                                setSelectedObject({
+                                    type: 'route',
+                                    data: route,
+                                });
+
+                                if (mapMode === 'update') {
+                                    setRouteName(route.route_name);
+                                    setRouteType(route.route_type);
+                                    setMinimumAircraftWeight(route.minimum_aircraft_weight_lbs ?? 4);
+                                    setMaximumAircraftWeight(route.maximum_aircraft_weight_lbs ?? 50);
+                                    setRouteBuffering(route.buffered ?? 0);
+                                }
+                            }
+                        };
+
+                        return route.direction === 2 ? (
+                            <>
+                                <Polyline
+                                    key={`${route.route_id}-left-${mapMode}`}
+                                    positions={leftRoutePositions}
+                                    pathOptions={routePathOptions}
+                                    bubblingMouseEvents={false}
+                                    interactive={
+                                        mapMode === 'view' ||
+                                        mapMode === 'update' ||
+                                        mapMode === 'delete'
                                     }
-                                },
-                            }}
-                        >
-                            {route.direction !== 2 && (
+                                    eventHandlers={{
+                                        click: selectRoute,
+                                    }}
+                                >
+                                    <RouteArrows
+                                        positions={leftRoutePositions}
+                                        direction={0}
+                                    />
+                                </Polyline>
+
+                                <Polyline
+                                    key={`${route.route_id}-right-${mapMode}`}
+                                    positions={rightRoutePositions}
+                                    pathOptions={routePathOptions}
+                                    bubblingMouseEvents={false}
+                                    interactive={
+                                        mapMode === 'view' ||
+                                        mapMode === 'update' ||
+                                        mapMode === 'delete'
+                                    }
+                                    eventHandlers={{
+                                        click: selectRoute,
+                                    }}
+                                >
+                                    <RouteArrows
+                                        positions={rightRoutePositions}
+                                        direction={1}
+                                    />
+                                    {mapMode === 'view' && (
+                                        <Popup>
+                                            <strong>{route.route_name}</strong>
+                                            <br />
+                                            Type: {route.route_type}
+                                            <br />
+                                            Status: {route.operational_status}
+                                            <br />
+                                            Origin Site ID: {route.origin_site_id}
+                                            <br />
+                                            Destination Site ID: {route.destination_site_id}
+                                            <br />
+                                            Origin DronePort ID: {route.origin_droneport_id}
+                                            <br />
+                                            Destination DronePort ID: {route.destination_droneport_id}
+                                            <br />
+                                            Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
+                                            <br />
+                                            Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
+                                            <br />
+                                            Route Direction: {getRouteDirectionLabel(route.direction)}
+                                            <br />
+                                            Route Buffer: {route.buffered}
+                                            <br />
+                                            Route ID: {route.route_id}
+                                            <br />
+                                            Created by: {route.created_by}
+                                        </Popup>
+                                    )}
+                                </Polyline>
+                            </>
+                        ) : (
+                            <Polyline
+                                key={`${route.route_id}-${mapMode}`}
+                                positions={routePositions}
+                                pathOptions={routePathOptions}
+                                bubblingMouseEvents={false}
+                                interactive={
+                                    mapMode === 'view' ||
+                                    mapMode === 'update' ||
+                                    mapMode === 'delete'
+                                }
+                                eventHandlers={{
+                                    click: selectRoute,
+                                }}
+                            >
                                 <RouteArrows
-                                    positions={route.geometry.coordinates.map((coordinate) => [
-                                        coordinate[1],
-                                        coordinate[0],
-                                    ])}
+                                    positions={routePositions}
                                     direction={route.direction}
                                 />
-                            )}
-                            {mapMode === 'view' && (
-                                <Popup>
-                                    <strong>{route.route_name}</strong>
-                                    <br />
-                                    Type: {route.route_type}
-                                    <br />
-                                    Status: {route.operational_status}
-                                    <br />
-                                    Origin Site ID: {route.origin_site_id}
-                                    <br />
-                                    Destination Site ID: {route.destination_site_id}
-                                    <br />
-                                    Origin DronePort ID: {route.origin_droneport_id}
-                                    <br />
-                                    Destination DronePort ID: {route.destination_droneport_id}
-                                    <br />
-                                    Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
-                                    <br />
-                                    Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
-                                    <br />
-                                    Route Direction: {route.direction}
-                                    <br />
-                                    Route Buffer: {route.buffered}
-                                    <br />
-                                    Route ID: {route.route_id}
-                                    <br />
-                                    Created by: {route.created_by}
-                                </Popup>
-                            )}
-                        </Polyline>
-                    ))}
+
+                                {mapMode === 'view' && (
+                                    <Popup>
+                                        <strong>{route.route_name}</strong>
+                                        <br />
+                                        Type: {route.route_type}
+                                        <br />
+                                        Status: {route.operational_status}
+                                        <br />
+                                        Origin Site ID: {route.origin_site_id}
+                                        <br />
+                                        Destination Site ID: {route.destination_site_id}
+                                        <br />
+                                        Origin DronePort ID: {route.origin_droneport_id}
+                                        <br />
+                                        Destination DronePort ID: {route.destination_droneport_id}
+                                        <br />
+                                        Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
+                                        <br />
+                                        Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
+                                        <br />
+                                        Route Direction: {getRouteDirectionLabel(route.direction)}
+                                        <br />
+                                        Route Buffer: {route.buffered}
+                                        <br />
+                                        Route ID: {route.route_id}
+                                        <br />
+                                        Created by: {route.created_by}
+                                    </Popup>
+                                )}
+                            </Polyline>
+                        );
+                    })}
 
             </MapContainer>
         </div>
