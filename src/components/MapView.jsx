@@ -1465,7 +1465,7 @@ export default function MapView({
                                 coordinate[0],
                             ])}
                             pathOptions={{
-                                color: site.operational_status === 'active' ? 'green' : 'gray',
+                                color: site.operational_status === 'active' ? 'gray' : 'gray',
                                 weight: 3,
                                 fillOpacity: 0.15,
                                 dashArray: site.operational_status === 'active' ? null : '4, 8',
@@ -1533,9 +1533,9 @@ export default function MapView({
                                 coordinate[0],
                             ])}
                             pathOptions={{
-                                color: zone.operational_status === 'active' ? 'red' : 'orange',
+                                color: zone.operational_status === 'active' ? 'red' : 'red',
                                 weight: 3,
-                                fillOpacity: 0.15,
+                                fillOpacity: zone.zone_type === 'inclusion' ? 0.0 : 0.15,
                                 dashArray: zone.operational_status === 'active' ? null : '4, 8',
                             }}
                             bubblingMouseEvents={false}
@@ -1665,7 +1665,7 @@ export default function MapView({
 
                         const routePathOptions = {
                             color: 'green',
-                            weight: mapMode === 'update' || mapMode === 'delete' ? 6 : 2,
+                            weight: mapMode === 'update' || mapMode === 'delete' ? 2 : 2,
                             opacity: 0.8,
                             dashArray: route.operational_status === 'active' ? null : '4, 8',
                         };
