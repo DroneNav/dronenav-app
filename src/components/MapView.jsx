@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 
 import {
     MapContainer,
@@ -912,6 +912,115 @@ export default function MapView({
         }
     }
 
+    function getSelectedOverlayId() {
+        if (!selectedObject) {
+            return null;
+        }
+
+        if (selectedObject.type === 'site') {
+            return selectedObject.data.site_id;
+        }
+
+        if (selectedObject.type === 'zone') {
+            return selectedObject.data.zone_id;
+        }
+
+        if (selectedObject.type === 'droneport') {
+            return selectedObject.data.droneport_id;
+        }
+
+        if (selectedObject.type === 'route') {
+            return selectedObject.data.route_id;
+        }
+
+        return null;
+    }
+
+    async function surveySelectedObject() {
+        if (!selectedObject) {
+            alert('Select an object first.');
+            return;
+        }
+
+        const overlayId = getSelectedOverlayId();
+        const surveyedBy = 'dronenav';
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/governance/overlays/${selectedObject.type}s/${overlayId}/survey`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ surveyed_by: 'dronenav' }),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Survey error:', result);
+                alert('Survey action failed. Check browser console.');
+                return;
+            }
+
+            alert('Survey status updated.');
+
+            setSelectedObject(null);
+
+            if (selectedObject.type === 'site') await loadSites();
+            if (selectedObject.type === 'zone') await loadZones();
+            if (selectedObject.type === 'droneport') await loadDroneports();
+            if (selectedObject.type === 'route') await loadRoutes();
+        } catch (error) {
+            console.error('Survey action failed:', error);
+            alert('Survey action failed. Check browser console.');
+        }
+    }
+
+    async function expireSurveySelectedObject() {
+        if (!selectedObject) {
+            alert('Select an object first.');
+            return;
+        }
+
+        const overlayId = getSelectedOverlayId();
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/governance/overlays/${selectedObject.type}s/${overlayId}/expire-survey`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({}),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Expire survey error:', result);
+                alert('Expire survey failed. Check browser console.');
+                return;
+            }
+
+            alert('Survey expired.');
+
+            setSelectedObject(null);
+
+            if (selectedObject.type === 'site') await loadSites();
+            if (selectedObject.type === 'zone') await loadZones();
+            if (selectedObject.type === 'droneport') await loadDroneports();
+            if (selectedObject.type === 'route') await loadRoutes();
+        } catch (error) {
+            console.error('Expire survey failed:', error);
+            alert('Expire survey failed. Check browser console.');
+        }
+    }
+
     return (
         <div>
             {!readOnly && (
@@ -1416,6 +1525,24 @@ export default function MapView({
                         </button>
                     )}
 
+                    {mapMode === 'update' && selectedObject.type !== 'site' && (
+                        <>
+                            <button
+                                onClick={surveySelectedObject}
+                                style={{ marginLeft: '10px', marginBottom: '10px' }}
+                            >
+                                Mark Surveyed
+                            </button>
+
+                            <button
+                                onClick={expireSurveySelectedObject}
+                                style={{ marginLeft: '10px', marginBottom: '10px' }}
+                            >
+                                Expire Survey
+                            </button>
+                        </>
+                    )}
+
                     <pre>{JSON.stringify(selectedObject, null, 2)}</pre>
                 </div>
             )}
@@ -1720,7 +1847,7 @@ export default function MapView({
                         };
 
                         return route.direction === 2 ? (
-                            <>
+                            <Fragment key={`${route.route_id}-bidirectional-${mapMode}`}>
                                 <Polyline
                                     pane="routesPane"
                                     key={`${route.route_id}-left-${mapMode}`}
@@ -1757,35 +1884,36 @@ export default function MapView({
                                         click: selectRoute,
                                     }}
                                 >
-                                    <Polyline
-                                        pane="routesPane"
-                                        positions={routePositions}
-                                        pathOptions={{
-                                            color: 'transparent',
-                                            weight: 24,
-                                            opacity: 0,
-                                        }}
-                                        bubblingMouseEvents={false}
-                                        interactive={
-                                            mapMode === 'view' ||
-                                            mapMode === 'update' ||
-                                            mapMode === 'delete'
-                                        }
-                                        eventHandlers={{
-                                            click: selectRoute,
-                                        }}
-                                    >
-                                        {mapMode === 'view' && (
-                                            <RoutePopup route={route} />
-                                        )}
-                                    </Polyline>
-
                                     <RouteArrows
                                         positions={rightRoutePositions}
                                         direction={1}
                                     />
                                 </Polyline>
-                            </>
+
+                                <Polyline
+                                    pane="routesPane"
+                                    positions={routePositions}
+                                    pathOptions={{
+                                        color: 'transparent',
+                                        weight: 24,
+                                        opacity: 0,
+                                    }}
+                                    bubblingMouseEvents={false}
+                                    interactive={
+                                        mapMode === 'view' ||
+                                        mapMode === 'update' ||
+                                        mapMode === 'delete'
+                                    }
+                                    eventHandlers={{
+                                        click: selectRoute,
+                                    }}
+                                >
+                                    {mapMode === 'view' && (
+                                        <RoutePopup route={route} />
+                                    )}
+                                </Polyline>
+
+                            </Fragment>
                         ) : (
                             <Polyline
                                 pane="routesPane"
