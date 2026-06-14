@@ -131,6 +131,38 @@ function getRouteDirectionLabel(direction) {
     return 'Unknown';
 }
 
+function RoutePopup({ route }) {
+    return (
+        <Popup>
+            <strong>{route.route_name}</strong>
+            <br />
+            Type: {route.route_type}
+            <br />
+            Status: {route.operational_status}
+            <br />
+            Origin Site ID: {route.origin_site_id}
+            <br />
+            Destination Site ID: {route.destination_site_id}
+            <br />
+            Origin DronePort ID: {route.origin_droneport_id}
+            <br />
+            Destination DronePort ID: {route.destination_droneport_id}
+            <br />
+            Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
+            <br />
+            Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
+            <br />
+            Route Direction: {getRouteDirectionLabel(route.direction)}
+            <br />
+            Route Buffer: {route.buffered}
+            <br />
+            Route ID: {route.route_id}
+            <br />
+            Created by: {route.created_by}
+        </Popup>
+    );
+}
+
 export default function MapView({
     readOnly = false,
     siteId = null,
@@ -1744,33 +1776,7 @@ export default function MapView({
                                         }}
                                     >
                                         {mapMode === 'view' && (
-                                            <Popup>
-                                                <strong>{route.route_name}</strong>
-                                                <br />
-                                                Type: {route.route_type}
-                                                <br />
-                                                Status: {route.operational_status}
-                                                <br />
-                                                Origin Site ID: {route.origin_site_id}
-                                                <br />
-                                                Destination Site ID: {route.destination_site_id}
-                                                <br />
-                                                Origin DronePort ID: {route.origin_droneport_id}
-                                                <br />
-                                                Destination DronePort ID: {route.destination_droneport_id}
-                                                <br />
-                                                Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
-                                                <br />
-                                                Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
-                                                <br />
-                                                Route Direction: {getRouteDirectionLabel(route.direction)}
-                                                <br />
-                                                Route Buffer: {route.buffered}
-                                                <br />
-                                                Route ID: {route.route_id}
-                                                <br />
-                                                Created by: {route.created_by}
-                                            </Popup>
+                                            <RoutePopup route={route} />
                                         )}
                                     </Polyline>
 
@@ -1815,33 +1821,7 @@ export default function MapView({
                                     }}
                                 >
                                     {mapMode === 'view' && (
-                                        <Popup>
-                                            <strong>{route.route_name}</strong>
-                                            <br />
-                                            Type: {route.route_type}
-                                            <br />
-                                            Status: {route.operational_status}
-                                            <br />
-                                            Origin Site ID: {route.origin_site_id}
-                                            <br />
-                                            Destination Site ID: {route.destination_site_id}
-                                            <br />
-                                            Origin DronePort ID: {route.origin_droneport_id}
-                                            <br />
-                                            Destination DronePort ID: {route.destination_droneport_id}
-                                            <br />
-                                            Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
-                                            <br />
-                                            Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
-                                            <br />
-                                            Route Direction: {getRouteDirectionLabel(route.direction)}
-                                            <br />
-                                            Route Buffer: {route.buffered}
-                                            <br />
-                                            Route ID: {route.route_id}
-                                            <br />
-                                            Created by: {route.created_by}
-                                        </Popup>
+                                        <RoutePopup route={route} />
                                     )}
 
                                 </Polyline>
