@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import {
     MapContainer,
     TileLayer,
+    Pane,
     Marker,
     Popup,
     Polygon,
@@ -1404,11 +1405,17 @@ export default function MapView({
                     url={MAP_TILE_URL}
                 />
 
+                <Pane name="sitesPane" style={{ zIndex: 400 }} />
+                <Pane name="zonesPane" style={{ zIndex: 410 }} />
+                <Pane name="routesPane" style={{ zIndex: 420 }} />
+                <Pane name="droneportsPane" style={{ zIndex: 430 }} />
+                <Pane name="editPane" style={{ zIndex: 500 }} />
+
                 <MapClickHandler onMapClick={handleMapClick} />
                 <MapPositionTracker onMove={setCurrentCenter} />
 
                 {points.map((point, index) => (
-                    <Marker key={index} position={[point.lat, point.lng]}>
+                    <Marker pane="editPane" key={index} position={[point.lat, point.lng]}>
                         <Popup>
                             Boundary Point {index + 1}
                             <br />
@@ -1420,15 +1427,16 @@ export default function MapView({
                 ))}
 
                 {(mapMode === 'create_site' || mapMode === 'create_zone') &&
-                    points.length >= 3 && <Polygon positions={polygonPositions} />}
+                    points.length >= 3 && <Polygon pane="editPane" positions={polygonPositions} />}
 
                 {mapMode === 'create_route' &&
                     points.length >= 4 && (
-                        <Polyline positions={polylinePositions} />
+                        <Polyline pane="editPane" positions={polylinePositions} />
                     )}
 
                 {mapMode === 'create_droneport' && points.length === 1 && (
                     <Circle
+                        pane="editPane"
                         center={[points[0].lat, points[0].lng]}
                         radius={(droneportDiameter / 2) * 0.3048}
                         pathOptions={{
@@ -1450,6 +1458,7 @@ export default function MapView({
                     )
                     .map((site) => (
                         <Polygon
+                            pane="sitesPane"
                             key={`${site.site_id}-${mapMode}`}
                             positions={site.geometry.coordinates[0].map((coordinate) => [
                                 coordinate[1],
@@ -1517,6 +1526,7 @@ export default function MapView({
                     )
                     .map((zone) => (
                         <Polygon
+                            pane="zonesPane"
                             key={`${zone.zone_id}-${mapMode}`}
                             positions={zone.geometry.coordinates[0].map((coordinate) => [
                                 coordinate[1],
@@ -1581,6 +1591,7 @@ export default function MapView({
                     )
                     .map((droneport) => (
                         <Circle
+                            pane="droneportsPane"
                             key={`${droneport.droneport_id}-${mapMode}`}
                             center={[
                                 droneport.geometry.coordinates[1],
@@ -1679,6 +1690,7 @@ export default function MapView({
                         return route.direction === 2 ? (
                             <>
                                 <Polyline
+                                    pane="routesPane"
                                     key={`${route.route_id}-left-${mapMode}`}
                                     positions={leftRoutePositions}
                                     pathOptions={routePathOptions}
@@ -1699,6 +1711,7 @@ export default function MapView({
                                 </Polyline>
 
                                 <Polyline
+                                    pane="routesPane"
                                     key={`${route.route_id}-right-${mapMode}`}
                                     positions={rightRoutePositions}
                                     pathOptions={routePathOptions}
@@ -1712,10 +1725,95 @@ export default function MapView({
                                         click: selectRoute,
                                     }}
                                 >
+                                    <Polyline
+                                        pane="routesPane"
+                                        positions={routePositions}
+                                        pathOptions={{
+                                            color: 'transparent',
+                                            weight: 24,
+                                            opacity: 0,
+                                        }}
+                                        bubblingMouseEvents={false}
+                                        interactive={
+                                            mapMode === 'view' ||
+                                            mapMode === 'update' ||
+                                            mapMode === 'delete'
+                                        }
+                                        eventHandlers={{
+                                            click: selectRoute,
+                                        }}
+                                    >
+                                        {mapMode === 'view' && (
+                                            <Popup>
+                                                <strong>{route.route_name}</strong>
+                                                <br />
+                                                Type: {route.route_type}
+                                                <br />
+                                                Status: {route.operational_status}
+                                                <br />
+                                                Origin Site ID: {route.origin_site_id}
+                                                <br />
+                                                Destination Site ID: {route.destination_site_id}
+                                                <br />
+                                                Origin DronePort ID: {route.origin_droneport_id}
+                                                <br />
+                                                Destination DronePort ID: {route.destination_droneport_id}
+                                                <br />
+                                                Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
+                                                <br />
+                                                Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
+                                                <br />
+                                                Route Direction: {getRouteDirectionLabel(route.direction)}
+                                                <br />
+                                                Route Buffer: {route.buffered}
+                                                <br />
+                                                Route ID: {route.route_id}
+                                                <br />
+                                                Created by: {route.created_by}
+                                            </Popup>
+                                        )}
+                                    </Polyline>
+
                                     <RouteArrows
                                         positions={rightRoutePositions}
                                         direction={1}
                                     />
+                                </Polyline>
+                            </>
+                        ) : (
+                            <Polyline
+                                pane="routesPane"
+                                key={`${route.route_id}-${mapMode}`}
+                                positions={routePositions}
+                                pathOptions={routePathOptions}
+                                bubblingMouseEvents={false}
+                                interactive={
+                                    mapMode === 'view' ||
+                                    mapMode === 'update' ||
+                                    mapMode === 'delete'
+                                }
+                                eventHandlers={{
+                                    click: selectRoute,
+                                }}
+                            >
+                                <Polyline
+                                    pane="routesPane"
+                                    positions={routePositions}
+                                    pathOptions={{
+                                        color: 'transparent',
+                                        weight: 20,
+                                        opacity: 0,
+                                    }}
+                                    bubblingMouseEvents={false}
+                                    interactive={
+                                        mapMode === 'view' ||
+                                        mapMode === 'update' ||
+                                        mapMode === 'delete'
+                                    }
+                                    eventHandlers={{
+                                        click: selectRoute,
+                                    }}
+                                >
                                     {mapMode === 'view' && (
                                         <Popup>
                                             <strong>{route.route_name}</strong>
@@ -1745,57 +1843,14 @@ export default function MapView({
                                             Created by: {route.created_by}
                                         </Popup>
                                     )}
+
                                 </Polyline>
-                            </>
-                        ) : (
-                            <Polyline
-                                key={`${route.route_id}-${mapMode}`}
-                                positions={routePositions}
-                                pathOptions={routePathOptions}
-                                bubblingMouseEvents={false}
-                                interactive={
-                                    mapMode === 'view' ||
-                                    mapMode === 'update' ||
-                                    mapMode === 'delete'
-                                }
-                                eventHandlers={{
-                                    click: selectRoute,
-                                }}
-                            >
+
                                 <RouteArrows
                                     positions={routePositions}
                                     direction={route.direction}
                                 />
 
-                                {mapMode === 'view' && (
-                                    <Popup>
-                                        <strong>{route.route_name}</strong>
-                                        <br />
-                                        Type: {route.route_type}
-                                        <br />
-                                        Status: {route.operational_status}
-                                        <br />
-                                        Origin Site ID: {route.origin_site_id}
-                                        <br />
-                                        Destination Site ID: {route.destination_site_id}
-                                        <br />
-                                        Origin DronePort ID: {route.origin_droneport_id}
-                                        <br />
-                                        Destination DronePort ID: {route.destination_droneport_id}
-                                        <br />
-                                        Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
-                                        <br />
-                                        Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
-                                        <br />
-                                        Route Direction: {getRouteDirectionLabel(route.direction)}
-                                        <br />
-                                        Route Buffer: {route.buffered}
-                                        <br />
-                                        Route ID: {route.route_id}
-                                        <br />
-                                        Created by: {route.created_by}
-                                    </Popup>
-                                )}
                             </Polyline>
                         );
                     })}
