@@ -140,6 +140,8 @@ function RoutePopup({ route }) {
             <br />
             Status: {route.operational_status}
             <br />
+            Survey: {route.survey_status}
+            <br />
             Origin Site ID: {route.origin_site_id}
             <br />
             Destination Site ID: {route.destination_site_id}
@@ -380,12 +382,7 @@ export default function MapView({
         points.length >= 3
             ? {
                 type: 'Polygon',
-                coordinates: [
-                    [
-                        ...points.map((point) => [point.lng, point.lat]),
-                        [points[0].lng, points[0].lat],
-                    ],
-                ],
+                coordinates: [],
             }
             : null;
 
@@ -1021,6 +1018,93 @@ export default function MapView({
         }
     }
 
+    async function surveySelectedSitePackage() {
+        if (!selectedObject || selectedObject.type !== 'site') {
+            alert('Select a site first.');
+            return;
+        }
+
+        const siteId = selectedObject.data.site_id;
+        const surveyedBy = 'dronenav';
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/governance/overlays/${siteId}/survey-package`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        surveyed_by: surveyedBy,
+                    }),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Survey package error:', JSON.stringify(result, null, 2));
+                alert('Survey package failed. Check browser console.');
+                return;
+            }
+
+            alert('Site package surveyed.');
+
+            setSelectedObject(null);
+
+            await loadSites();
+            await loadZones();
+            await loadDroneports();
+            await loadRoutes();
+        } catch (error) {
+            console.error('Survey package failed:', error);
+            alert('Survey package failed. Check browser console.');
+        }
+    }
+
+    async function expireSelectedSitePackage() {
+        if (!selectedObject || selectedObject.type !== 'site') {
+            alert('Select a site first.');
+            return;
+        }
+
+        const siteId = selectedObject.data.site_id;
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/governance/overlays/${siteId}/expire-survey-package`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({}),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Expire package error:', JSON.stringify(result, null, 2));
+                alert('Expire package failed. Check browser console.');
+                return;
+            }
+
+            alert('Site package expired.');
+
+            setSelectedObject(null);
+
+            await loadSites();
+            await loadZones();
+            await loadDroneports();
+            await loadRoutes();
+        } catch (error) {
+            console.error('Expire package failed:', error);
+            alert('Expire package failed. Check browser console.');
+        }
+    }
+
     return (
         <div>
             {!readOnly && (
@@ -1543,6 +1627,25 @@ export default function MapView({
                         </>
                     )}
 
+                    {mapMode === 'update' && selectedObject.type === 'site' && (
+                        <>
+                            <button
+                                onClick={surveySelectedSitePackage}
+                                style={{ marginLeft: '10px', marginBottom: '10px' }}
+                            >
+                                Mark Site Package Surveyed
+                            </button>
+
+                            <button
+                                onClick={expireSelectedSitePackage}
+                                style={{ marginLeft: '10px', marginBottom: '10px' }}
+                            >
+                                Expire Site Package Survey
+                            </button>
+                        </>
+                    )}
+
+
                     <pre>{JSON.stringify(selectedObject, null, 2)}</pre>
                 </div>
             )}
@@ -1792,6 +1895,8 @@ export default function MapView({
                                     Type: {droneport.droneport_type}
                                     <br />
                                     Status: {droneport.operational_status}
+                                    <br />
+                                    Survey: {droneport.survey_status}
                                     <br />
                                     Site ID: {droneport.site_id}
                                     <br />
