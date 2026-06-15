@@ -1105,6 +1105,95 @@ export default function MapView({
         }
     }
 
+    async function deactivateSelectedObject() {
+        if (!selectedObject) {
+            alert('Select an object first.');
+            return;
+        }
+
+        if (selectedObject.type === 'site') {
+            alert('Use Deactivate Site Package for Sites.');
+            return;
+        }
+
+        const overlayId = getSelectedOverlayId();
+        const overlayType = selectedObject.type;
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/governance/overlays/${overlayType}s/${overlayId}/deactivate`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({}),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Deactivate error:', JSON.stringify(result, null, 2));
+                alert('Deactivate failed. Check browser console.');
+                return;
+            }
+
+            alert('Overlay deactivated.');
+
+            setSelectedObject(null);
+
+            if (selectedObject.type === 'zone') await loadZones();
+            if (selectedObject.type === 'droneport') await loadDroneports();
+            if (selectedObject.type === 'route') await loadRoutes();
+        } catch (error) {
+            console.error('Deactivate failed:', error);
+            alert('Deactivate failed. Check browser console.');
+        }
+    }
+
+    async function deactivateSelectedSitePackage() {
+        if (!selectedObject || selectedObject.type !== 'site') {
+            alert('Select a site first.');
+            return;
+        }
+
+        const siteId = selectedObject.data.site_id;
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/governance/overlays/sites/${siteId}/deactivate-package`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({}),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Deactivate package error:', JSON.stringify(result, null, 2));
+                alert('Deactivate package failed. Check browser console.');
+                return;
+            }
+
+            alert('Site package deactivated.');
+
+            setSelectedObject(null);
+
+            await loadSites();
+            await loadZones();
+            await loadDroneports();
+            await loadRoutes();
+        } catch (error) {
+            console.error('Deactivate package failed:', error);
+            alert('Deactivate package failed. Check browser console.');
+        }
+    }
+
     return (
         <div>
             {!readOnly && (
@@ -1624,6 +1713,13 @@ export default function MapView({
                             >
                                 Expire Survey
                             </button>
+
+                            <button
+                                onClick={deactivateSelectedObject}
+                                style={{ marginLeft: '10px', marginBottom: '10px' }}
+                            >
+                                Deactivate Overlay
+                            </button>
                         </>
                     )}
 
@@ -1641,6 +1737,13 @@ export default function MapView({
                                 style={{ marginLeft: '10px', marginBottom: '10px' }}
                             >
                                 Expire Site Package Survey
+                            </button>
+
+                            <button
+                                onClick={deactivateSelectedSitePackage}
+                                style={{ marginLeft: '10px', marginBottom: '10px' }}
+                            >
+                                Deactivate Site Package
                             </button>
                         </>
                     )}
