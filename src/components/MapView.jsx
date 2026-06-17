@@ -195,6 +195,7 @@ export default function MapView({
     const [routeType, setRouteType] = useState('open');
     const [mapCenter, setMapCenter] = useState(DEFAULT_MAP_CENTER);
     const [currentCenter, setCurrentCenter] = useState(DEFAULT_MAP_CENTER);
+    const [referenceData, setReferenceData] = useState(null);
     const [authorityId, setAuthorityId] = useState(
         '019e886f-5110-7067-90f9-17e73143a30a'
     );
@@ -357,6 +358,29 @@ export default function MapView({
         } catch (error) {
             console.error('Load overlay package failed:', error);
             alert('Load overlay package failed. Check browser console.');
+        }
+    }
+
+
+    async function loadReferenceData() {
+        try {
+            const response = await fetch(
+                'https://api.dronenav.org/api/reference-data'
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Reference data error:', JSON.stringify(result, null, 2));
+                alert('Failed to load reference data.');
+                return;
+            }
+
+            setReferenceData(result);
+            console.log('Loaded reference data:', result);
+        } catch (error) {
+            console.error('Reference data load failed:', error);
+            alert('Reference data load failed. Check browser console.');
         }
     }
 
@@ -2123,21 +2147,28 @@ export default function MapView({
 
                             </Fragment>
                         ) : (
-                            <Polyline
-                                pane="routesPane"
-                                key={`${route.route_id}-${mapMode}`}
-                                positions={routePositions}
-                                pathOptions={routePathOptions}
-                                bubblingMouseEvents={false}
-                                interactive={
-                                    mapMode === 'view' ||
-                                    mapMode === 'update' ||
-                                    mapMode === 'delete'
-                                }
-                                eventHandlers={{
-                                    click: selectRoute,
-                                }}
-                            >
+                            <>
+                                <Polyline
+                                    pane="routesPane"
+                                    key={`${route.route_id}-${mapMode}`}
+                                    positions={routePositions}
+                                    pathOptions={routePathOptions}
+                                    bubblingMouseEvents={false}
+                                    interactive={
+                                        mapMode === 'view' ||
+                                        mapMode === 'update' ||
+                                        mapMode === 'delete'
+                                    }
+                                    eventHandlers={{
+                                        click: selectRoute,
+                                    }}
+                                >
+                                    <RouteArrows
+                                        positions={routePositions}
+                                        direction={route.direction}
+                                    />
+                                </Polyline>
+
                                 <Polyline
                                     pane="routesPane"
                                     positions={routePositions}
@@ -2161,16 +2192,9 @@ export default function MapView({
                                     )}
 
                                 </Polyline>
-
-                                <RouteArrows
-                                    positions={routePositions}
-                                    direction={route.direction}
-                                />
-
-                            </Polyline>
+                            </>
                         );
                     })}
-
             </MapContainer>
         </div>
     );
