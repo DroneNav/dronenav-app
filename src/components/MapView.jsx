@@ -390,6 +390,10 @@ export default function MapView({
         }
     }, [readOnly, siteId]);
 
+    useEffect(() => {
+        loadReferenceData();
+    }, []);
+
     const polygonPositions = points.map((point) => [point.lat, point.lng]);
 
     const polylinePositions = points.map((point) => [point.lat, point.lng]);
@@ -1296,12 +1300,11 @@ export default function MapView({
                             />
 
                             <select value={siteType} onChange={(e) => setSiteType(e.target.value)}>
-                                <option value="school">School</option>
-                                <option value="park">Park</option>
-                                <option value="commercial">Commercial</option>
-                                <option value="private">Private</option>
-                                <option value="government">Government</option>
-                                <option value="residential">Residential</option>
+                                {Object.entries(referenceData?.site_type || {}).map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
                             </select>
 
                             <button onClick={saveSite} style={{ marginLeft: '10px' }}>
@@ -1333,16 +1336,12 @@ export default function MapView({
                                 onChange={(e) => setZoneName(e.target.value)}
                             />
 
-                            <select
-                                value={zoneType}
-                                onChange={(e) => setZoneType(e.target.value)}
-                            >
-                                <option value="private">Closed</option>
-                                <option value="restricted">Restricted</option>
-                                <option value="caution">Hazardous</option>
-                                <option value="emergency">Emergency</option>
-                                <option value="open">Open</option>
-                                <option value="inclusion">Inclusion</option>
+                            <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
+                                {Object.entries(referenceData?.zone_type || {}).map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
                             </select>
 
                             <button onClick={saveZone} style={{ marginLeft: '10px' }}>
@@ -1374,17 +1373,12 @@ export default function MapView({
                                 onChange={(e) => setDroneportName(e.target.value)}
                             />
 
-                            <select
-                                value={droneportType}
-                                onChange={(e) => setDroneportType(e.target.value)}
-                            >
-                                <option value="recreation">Recreation</option>
-                                <option value="education">Education</option>
-                                <option value="commercial">Commercial</option>
-                                <option value="emergency">Emergency</option>
-                                <option value="military">Military</option>
-                                <option value="government">Government</option>
-                                <option value="civil">Civil</option>
+                            <select value={droneportType} onChange={(e) => setDroneportType(e.target.value)}>
+                                {Object.entries(referenceData?.droneport_type || {}).map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
                             </select>
 
                             <input
@@ -1465,14 +1459,12 @@ export default function MapView({
                                 onChange={(e) => setRouteName(e.target.value)}
                             />
 
-                            <select
-                                value={routeType}
-                                onChange={(e) => setRouteType(e.target.value)}
-                            >
-                                <option value="open">Open</option>
-                                <option value="commercial">Commercial</option>
-                                <option value="emergency">Emergency</option>
-                                <option value="raceway">Raceway</option>
+                            <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
+                                {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
                             </select>
 
                             <input
@@ -1553,16 +1545,12 @@ export default function MapView({
                                 onChange={(e) => setZoneName(e.target.value)}
                             />
 
-                            <select
-                                value={zoneType}
-                                onChange={(e) => setZoneType(e.target.value)}
-                            >
-                                <option value="private">Closed</option>
-                                <option value="restricted">Restricted</option>
-                                <option value="caution">Hazardous</option>
-                                <option value="emergency">Emergency</option>
-                                <option value="open">Open</option>
-                                <option value="inclusion">Inclusion</option>
+                            <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
+                                {Object.entries(referenceData?.zone_type || {}).map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
                             </select>
 
                             <input
@@ -1596,17 +1584,12 @@ export default function MapView({
                                 onChange={(e) => setDroneportName(e.target.value)}
                             />
 
-                            <select
-                                value={droneportType}
-                                onChange={(e) => setDroneportType(e.target.value)}
-                            >
-                                <option value="recreation">Recreation</option>
-                                <option value="education">Education</option>
-                                <option value="commercial">Commercial</option>
-                                <option value="emergency">Emergency</option>
-                                <option value="military">Military</option>
-                                <option value="government">Government</option>
-                                <option value="civil">Civil</option>
+                            <select value={droneportType} onChange={(e) => setDroneportType(e.target.value)}>
+                                {Object.entries(referenceData?.droneport_type || {}).map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
                             </select>
 
                             <input
@@ -1633,14 +1616,12 @@ export default function MapView({
                                 onChange={(e) => setRouteName(e.target.value)}
                             />
 
-                            <select
-                                value={routeType}
-                                onChange={(e) => setRouteType(e.target.value)}
-                            >
-                                <option value="open">Open</option>
-                                <option value="commercial">Commercial</option>
-                                <option value="emergency">Emergency</option>
-                                <option value="raceway">Raceway</option>
+                            <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
+                                {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
+                                    <option key={value} value={value}>
+                                        {label}
+                                    </option>
+                                ))}
                             </select>
 
                             <input
