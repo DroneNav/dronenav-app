@@ -1223,960 +1223,981 @@ export default function MapView({
     }
 
     return (
-        <div>
+        <div
+            style={{
+                display: 'grid',
+                gridTemplateColumns: readOnly ? '1fr' : '360px 1fr',
+                height: '100vh',
+                overflow: 'hidden',
+            }}
+        >
             {!readOnly && (
-                <div style={{ padding: '10px' }}>
+                <div
+                    style={{
+                        padding: '10px',
+                        overflowY: 'auto',
+                        borderRight: '1px solid #ccc',
+                    }}
+                >
 
-                    <h3>Map Mode</h3>
+                    {!readOnly && (
+                        <div style={{ padding: '10px' }}>
 
-                    <select
-                        value={mapMode}
-                        onChange={(e) => {
-                            setMapMode(e.target.value);
-                            clearPoints();
-                            setSelectedObject(null);
-                        }}
-                    >
-                        <option value="view">View</option>
-                        <option value="create_site">Create Site</option>
-                        <option value="create_zone">Create Zone</option>
-                        <option value="create_droneport">Create DronePort</option>
-                        <option value="create_route">Create Route</option>
-                        <option value="update">Update</option>
-                        <option value="delete">Delete</option>
-                    </select>
-
-                    <span style={{ marginLeft: '20px' }}>
-                        <strong>{pointLabel}:</strong> {points.length}
-                    </span>
-
-                    <button onClick={undoLastPoint} style={{ marginLeft: '10px' }}>
-                        Undo Last Point
-                    </button>
-
-                    <button onClick={clearPoints} style={{ marginLeft: '10px' }}>
-                        Clear Points
-                    </button>
-
-                    <button onClick={() => setMapCenter(currentCenter)} style={{ marginLeft: '10px' }}>
-                        Set Home Center
-                    </button>
-
-                    <button onClick={loadSites} style={{ marginLeft: '10px' }}>
-                        Load Sites
-                    </button>
-
-                    <button onClick={loadZones} style={{ marginLeft: '10px' }}>
-                        Load Zones
-                    </button>
-
-                    <button onClick={loadDroneports} style={{ marginLeft: '10px' }}>
-                        Load DronePorts
-                    </button>
-
-                    <button onClick={loadRoutes} style={{ marginLeft: '10px' }}>
-                        Load Routes
-                    </button>
-
-                    {mapMode === 'create_site' && (
-                        <>
-                            <h3>Create Site</h3>
-
-                            <label>
-                                Site Name:{' '}
-                                <input
-                                    type="text"
-                                    placeholder="Site Name"
-                                    value={siteName}
-                                    onChange={(e) => setSiteName(e.target.value)}
-                                />
-                            </label>
-
-                            <input
-                                type="text"
-                                placeholder="Description"
-                                value={siteDescription}
-                                onChange={(e) => setSiteDescription(e.target.value)}
-                            />
-
-                            <select value={siteType} onChange={(e) => setSiteType(e.target.value)}>
-                                {Object.entries(referenceData?.site_type || {}).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <button onClick={saveSite} style={{ marginLeft: '10px' }}>
-                                Save Site
-                            </button>
-                        </>
-                    )}
-
-                    {mapMode === 'create_zone' && (
-                        <>
-                            <h3>Create Zone</h3>
+                            <h3>Map Mode</h3>
 
                             <select
-                                value={selectedSiteId}
-                                onChange={(e) => setSelectedSiteId(e.target.value)}
-                            >
-                                <option value="">Select Site</option>
-                                {savedSites.map((site) => (
-                                    <option key={site.site_id} value={site.site_id}>
-                                        {site.site_name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="text"
-                                placeholder="Zone Name"
-                                value={zoneName}
-                                onChange={(e) => setZoneName(e.target.value)}
-                            />
-
-                            <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
-                                {Object.entries(referenceData?.zone_type || {}).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <button onClick={saveZone} style={{ marginLeft: '10px' }}>
-                                Save Zone
-                            </button>
-                        </>
-                    )}
-
-                    {mapMode === 'create_droneport' && (
-                        <>
-                            <h3>Create DronePort</h3>
-
-                            <select
-                                value={selectedSiteId}
-                                onChange={(e) => setSelectedSiteId(e.target.value)}
-                            >
-                                <option value="">Select Site</option>
-                                {savedSites.map((site) => (
-                                    <option key={site.site_id} value={site.site_id}>
-                                        {site.site_name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="text"
-                                placeholder="DronePort Name"
-                                value={droneportName}
-                                onChange={(e) => setDroneportName(e.target.value)}
-                            />
-
-                            <select value={droneportType} onChange={(e) => setDroneportType(e.target.value)}>
-                                {Object.entries(referenceData?.droneport_type || {}).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="number"
-                                placeholder="Diameter ft"
-                                value={droneportDiameter}
-                                onChange={(e) => setDroneportDiameter(Number(e.target.value))}
-                            />
-
-                            <button onClick={saveDroneport} style={{ marginLeft: '10px' }}>
-                                Save DronePort
-                            </button>
-                        </>
-                    )}
-
-                    {mapMode === 'create_route' && (
-                        <>
-                            <h3>Create Route</h3>
-
-                            <select
-                                value={originSelectedSiteId}
+                                value={mapMode}
                                 onChange={(e) => {
-                                    setOriginSelectedSiteId(e.target.value);
-                                    setOriginSelectedDroneportId('');
+                                    setMapMode(e.target.value);
+                                    clearPoints();
+                                    setSelectedObject(null);
                                 }}
                             >
-                                <option value="">Select Origin Site</option>
-                                {savedSites.map((site) => (
-                                    <option key={site.site_id} value={site.site_id}>
-                                        {site.site_name}
-                                    </option>
-                                ))}
+                                <option value="view">View</option>
+                                <option value="create_site">Create Site</option>
+                                <option value="create_zone">Create Zone</option>
+                                <option value="create_droneport">Create DronePort</option>
+                                <option value="create_route">Create Route</option>
+                                <option value="update">Update</option>
+                                <option value="delete">Delete</option>
                             </select>
 
-                            <select
-                                value={destinationSelectedSiteId}
-                                onChange={(e) => {
-                                    setDestinationSelectedSiteId(e.target.value);
-                                    setDestinationSelectedDroneportId('');
-                                }}
-                            >
-                                <option value="">Select Destination Site</option>
-                                {savedSites.map((site) => (
-                                    <option key={site.site_id} value={site.site_id}>
-                                        {site.site_name}
-                                    </option>
-                                ))}
-                            </select>
+                            <span style={{ marginLeft: '20px' }}>
+                                <strong>{pointLabel}:</strong> {points.length}
+                            </span>
 
-                            <select
-                                value={originSelectedDroneportId}
-                                onChange={(e) => setOriginSelectedDroneportId(e.target.value)}
-                            >
-                                <option value="">Select Origin DronePort</option>
-                                {originDroneports.map((droneport) => (
-                                    <option key={droneport.droneport_id} value={droneport.droneport_id}>
-                                        {droneport.droneport_name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <select
-                                value={destinationSelectedDroneportId}
-                                onChange={(e) => setDestinationSelectedDroneportId(e.target.value)}
-                            >
-                                <option value="">Select Destination DronePort</option>
-                                {destinationDroneports.map((droneport) => (
-                                    <option key={droneport.droneport_id} value={droneport.droneport_id}>
-                                        {droneport.droneport_name}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="text"
-                                placeholder="Route Name"
-                                value={routeName}
-                                onChange={(e) => setRouteName(e.target.value)}
-                            />
-
-                            <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
-                                {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="number"
-                                placeholder="4"
-                                value={minimumAircraftWeight}
-                                onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
-                            />
-
-                            <input
-                                type="number"
-                                placeholder="50"
-                                value={maximumAircraftWeight}
-                                onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
-                            />
-
-                            <select
-                                value={routeDirection}
-                                onChange={(e) => setRouteDirection(e.target.value)}
-                            >
-                                <option value="2">Bi-directional</option>
-                                <option value="0">One-way</option>
-                                <option value="1">Reverse</option>
-                            </select>
-
-                            <input
-                                type="number"
-                                placeholder="0"
-                                value={routeBuffering}
-                                onChange={(e) => setRouteBuffering(Number(e.target.value))}
-                            />
-
-                            <button onClick={saveRoute} style={{ marginLeft: '10px' }}>
-                                Save Route
+                            <button onClick={undoLastPoint} style={{ marginLeft: '10px' }}>
+                                Undo Last Point
                             </button>
-                        </>
-                    )}
 
-                    {mapMode === 'update' && selectedObject && selectedObject.type === 'site' && (
-                        <>
-                            <h3>Update Site Attributes</h3>
-
-                            <input
-                                type="text"
-                                placeholder="Description"
-                                value={siteDescription}
-                                onChange={(e) => setSiteDescription(e.target.value)}
-                            />
-
-                            <input
-                                type="number"
-                                placeholder="Minimum altitude: (ft)"
-                                value={minimumAltitude}
-                                onChange={(e) => setMinimumAltitude(Number(e.target.value))}
-                            />
-
-                            <input
-                                type="number"
-                                placeholder="Maximum altitude: (ft)"
-                                value={maximumAltitude}
-                                onChange={(e) => setMaximumAltitude(Number(e.target.value))}
-                            />
-
-                            <button onClick={updateSelectedSite} style={{ marginLeft: '10px' }}>
-                                Update Site Attributes
+                            <button onClick={clearPoints} style={{ marginLeft: '10px' }}>
+                                Clear Points
                             </button>
-                        </>
-                    )}
 
-                    {mapMode === 'update' && selectedObject && selectedObject.type === 'zone' && (
-                        <>
-                            <h3>Update Zone Attributes</h3>
-
-                            <input
-                                type="text"
-                                placeholder="New zone name"
-                                value={zoneName}
-                                onChange={(e) => setZoneName(e.target.value)}
-                            />
-
-                            <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
-                                {Object.entries(referenceData?.zone_type || {}).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="number"
-                                placeholder="Minimum altitude: (ft)"
-                                value={minimumAltitude}
-                                onChange={(e) => setMinimumAltitude(Number(e.target.value))}
-                            />
-
-                            <input
-                                type="number"
-                                placeholder="Maximum altitude: (ft)"
-                                value={maximumAltitude}
-                                onChange={(e) => setMaximumAltitude(Number(e.target.value))}
-                            />
-
-                            <button onClick={updateSelectedZone} style={{ marginLeft: '10px' }}>
-                                Update Zone Attributes
+                            <button onClick={() => setMapCenter(currentCenter)} style={{ marginLeft: '10px' }}>
+                                Set Home Center
                             </button>
-                        </>
-                    )}
 
-                    {mapMode === 'update' && selectedObject && selectedObject.type === 'droneport' && (
-                        <>
-                            <h3>Update DronePort Attributes</h3>
-
-                            <input
-                                type="text"
-                                placeholder="New droneport name"
-                                value={droneportName}
-                                onChange={(e) => setDroneportName(e.target.value)}
-                            />
-
-                            <select value={droneportType} onChange={(e) => setDroneportType(e.target.value)}>
-                                {Object.entries(referenceData?.droneport_type || {}).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="number"
-                                placeholder="Droneport diameter (ft):"
-                                value={droneportDiameter}
-                                onChange={(e) => setDroneportDiameter(Number(e.target.value))}
-                            />
-
-                            <button onClick={updateSelectedDroneport} style={{ marginLeft: '10px' }}>
-                                Update DronePort Attributes
+                            <button onClick={loadSites} style={{ marginLeft: '10px' }}>
+                                Load Sites
                             </button>
-                        </>
-                    )}
 
-                    {mapMode === 'update' && selectedObject && selectedObject.type === 'route' && (
-                        <>
-                            <h3>Update Route Attributes</h3>
-
-                            <input
-                                type="text"
-                                placeholder="New route name"
-                                value={routeName}
-                                onChange={(e) => setRouteName(e.target.value)}
-                            />
-
-                            <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
-                                {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
-                                    <option key={value} value={value}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <input
-                                type="number"
-                                placeholder="Buffer"
-                                value={routeBuffering}
-                                onChange={(e) => setRouteBuffering(Number(e.target.value))}
-                            />
-
-                            <input
-                                type="number"
-                                placeholder="Minimum aircraft wgt: (lbs)"
-                                value={minimumAircraftWeight}
-                                onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
-                            />
-
-                            <input
-                                type="number"
-                                placeholder="Maximum aircraft wgt: (lbs)"
-                                value={maximumAircraftWeight}
-                                onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
-                            />
-
-                            <button onClick={updateSelectedRoute} style={{ marginLeft: '10px' }}>
-                                Update Route Attributes
+                            <button onClick={loadZones} style={{ marginLeft: '10px' }}>
+                                Load Zones
                             </button>
-                        </>
+
+                            <button onClick={loadDroneports} style={{ marginLeft: '10px' }}>
+                                Load DronePorts
+                            </button>
+
+                            <button onClick={loadRoutes} style={{ marginLeft: '10px' }}>
+                                Load Routes
+                            </button>
+
+                            {mapMode === 'create_site' && (
+                                <>
+                                    <h3>Create Site</h3>
+
+                                    <label>
+                                        Site Name:{' '}
+                                        <input
+                                            type="text"
+                                            placeholder="Site Name"
+                                            value={siteName}
+                                            onChange={(e) => setSiteName(e.target.value)}
+                                        />
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        placeholder="Description"
+                                        value={siteDescription}
+                                        onChange={(e) => setSiteDescription(e.target.value)}
+                                    />
+
+                                    <select value={siteType} onChange={(e) => setSiteType(e.target.value)}>
+                                        {Object.entries(referenceData?.site_type || {}).map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <button onClick={saveSite} style={{ marginLeft: '10px' }}>
+                                        Save Site
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'create_zone' && (
+                                <>
+                                    <h3>Create Zone</h3>
+
+                                    <select
+                                        value={selectedSiteId}
+                                        onChange={(e) => setSelectedSiteId(e.target.value)}
+                                    >
+                                        <option value="">Select Site</option>
+                                        {savedSites.map((site) => (
+                                            <option key={site.site_id} value={site.site_id}>
+                                                {site.site_name}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="text"
+                                        placeholder="Zone Name"
+                                        value={zoneName}
+                                        onChange={(e) => setZoneName(e.target.value)}
+                                    />
+
+                                    <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
+                                        {Object.entries(referenceData?.zone_type || {}).map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <button onClick={saveZone} style={{ marginLeft: '10px' }}>
+                                        Save Zone
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'create_droneport' && (
+                                <>
+                                    <h3>Create DronePort</h3>
+
+                                    <select
+                                        value={selectedSiteId}
+                                        onChange={(e) => setSelectedSiteId(e.target.value)}
+                                    >
+                                        <option value="">Select Site</option>
+                                        {savedSites.map((site) => (
+                                            <option key={site.site_id} value={site.site_id}>
+                                                {site.site_name}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="text"
+                                        placeholder="DronePort Name"
+                                        value={droneportName}
+                                        onChange={(e) => setDroneportName(e.target.value)}
+                                    />
+
+                                    <select value={droneportType} onChange={(e) => setDroneportType(e.target.value)}>
+                                        {Object.entries(referenceData?.droneport_type || {}).map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="number"
+                                        placeholder="Diameter ft"
+                                        value={droneportDiameter}
+                                        onChange={(e) => setDroneportDiameter(Number(e.target.value))}
+                                    />
+
+                                    <button onClick={saveDroneport} style={{ marginLeft: '10px' }}>
+                                        Save DronePort
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'create_route' && (
+                                <>
+                                    <h3>Create Route</h3>
+
+                                    <select
+                                        value={originSelectedSiteId}
+                                        onChange={(e) => {
+                                            setOriginSelectedSiteId(e.target.value);
+                                            setOriginSelectedDroneportId('');
+                                        }}
+                                    >
+                                        <option value="">Select Origin Site</option>
+                                        {savedSites.map((site) => (
+                                            <option key={site.site_id} value={site.site_id}>
+                                                {site.site_name}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <select
+                                        value={destinationSelectedSiteId}
+                                        onChange={(e) => {
+                                            setDestinationSelectedSiteId(e.target.value);
+                                            setDestinationSelectedDroneportId('');
+                                        }}
+                                    >
+                                        <option value="">Select Destination Site</option>
+                                        {savedSites.map((site) => (
+                                            <option key={site.site_id} value={site.site_id}>
+                                                {site.site_name}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <select
+                                        value={originSelectedDroneportId}
+                                        onChange={(e) => setOriginSelectedDroneportId(e.target.value)}
+                                    >
+                                        <option value="">Select Origin DronePort</option>
+                                        {originDroneports.map((droneport) => (
+                                            <option key={droneport.droneport_id} value={droneport.droneport_id}>
+                                                {droneport.droneport_name}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <select
+                                        value={destinationSelectedDroneportId}
+                                        onChange={(e) => setDestinationSelectedDroneportId(e.target.value)}
+                                    >
+                                        <option value="">Select Destination DronePort</option>
+                                        {destinationDroneports.map((droneport) => (
+                                            <option key={droneport.droneport_id} value={droneport.droneport_id}>
+                                                {droneport.droneport_name}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="text"
+                                        placeholder="Route Name"
+                                        value={routeName}
+                                        onChange={(e) => setRouteName(e.target.value)}
+                                    />
+
+                                    <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
+                                        {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="number"
+                                        placeholder="4"
+                                        value={minimumAircraftWeight}
+                                        onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
+                                    />
+
+                                    <input
+                                        type="number"
+                                        placeholder="50"
+                                        value={maximumAircraftWeight}
+                                        onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
+                                    />
+
+                                    <select
+                                        value={routeDirection}
+                                        onChange={(e) => setRouteDirection(e.target.value)}
+                                    >
+                                        <option value="2">Bi-directional</option>
+                                        <option value="0">One-way</option>
+                                        <option value="1">Reverse</option>
+                                    </select>
+
+                                    <input
+                                        type="number"
+                                        placeholder="0"
+                                        value={routeBuffering}
+                                        onChange={(e) => setRouteBuffering(Number(e.target.value))}
+                                    />
+
+                                    <button onClick={saveRoute} style={{ marginLeft: '10px' }}>
+                                        Save Route
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'update' && selectedObject && selectedObject.type === 'site' && (
+                                <>
+                                    <h3>Update Site Attributes</h3>
+
+                                    <input
+                                        type="text"
+                                        placeholder="Description"
+                                        value={siteDescription}
+                                        onChange={(e) => setSiteDescription(e.target.value)}
+                                    />
+
+                                    <input
+                                        type="number"
+                                        placeholder="Minimum altitude: (ft)"
+                                        value={minimumAltitude}
+                                        onChange={(e) => setMinimumAltitude(Number(e.target.value))}
+                                    />
+
+                                    <input
+                                        type="number"
+                                        placeholder="Maximum altitude: (ft)"
+                                        value={maximumAltitude}
+                                        onChange={(e) => setMaximumAltitude(Number(e.target.value))}
+                                    />
+
+                                    <button onClick={updateSelectedSite} style={{ marginLeft: '10px' }}>
+                                        Update Site Attributes
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'update' && selectedObject && selectedObject.type === 'zone' && (
+                                <>
+                                    <h3>Update Zone Attributes</h3>
+
+                                    <input
+                                        type="text"
+                                        placeholder="New zone name"
+                                        value={zoneName}
+                                        onChange={(e) => setZoneName(e.target.value)}
+                                    />
+
+                                    <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
+                                        {Object.entries(referenceData?.zone_type || {}).map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="number"
+                                        placeholder="Minimum altitude: (ft)"
+                                        value={minimumAltitude}
+                                        onChange={(e) => setMinimumAltitude(Number(e.target.value))}
+                                    />
+
+                                    <input
+                                        type="number"
+                                        placeholder="Maximum altitude: (ft)"
+                                        value={maximumAltitude}
+                                        onChange={(e) => setMaximumAltitude(Number(e.target.value))}
+                                    />
+
+                                    <button onClick={updateSelectedZone} style={{ marginLeft: '10px' }}>
+                                        Update Zone Attributes
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'update' && selectedObject && selectedObject.type === 'droneport' && (
+                                <>
+                                    <h3>Update DronePort Attributes</h3>
+
+                                    <input
+                                        type="text"
+                                        placeholder="New droneport name"
+                                        value={droneportName}
+                                        onChange={(e) => setDroneportName(e.target.value)}
+                                    />
+
+                                    <select value={droneportType} onChange={(e) => setDroneportType(e.target.value)}>
+                                        {Object.entries(referenceData?.droneport_type || {}).map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="number"
+                                        placeholder="Droneport diameter (ft):"
+                                        value={droneportDiameter}
+                                        onChange={(e) => setDroneportDiameter(Number(e.target.value))}
+                                    />
+
+                                    <button onClick={updateSelectedDroneport} style={{ marginLeft: '10px' }}>
+                                        Update DronePort Attributes
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'update' && selectedObject && selectedObject.type === 'route' && (
+                                <>
+                                    <h3>Update Route Attributes</h3>
+
+                                    <input
+                                        type="text"
+                                        placeholder="New route name"
+                                        value={routeName}
+                                        onChange={(e) => setRouteName(e.target.value)}
+                                    />
+
+                                    <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
+                                        {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
+                                            <option key={value} value={value}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </select>
+
+                                    <input
+                                        type="number"
+                                        placeholder="Buffer"
+                                        value={routeBuffering}
+                                        onChange={(e) => setRouteBuffering(Number(e.target.value))}
+                                    />
+
+                                    <input
+                                        type="number"
+                                        placeholder="Minimum aircraft wgt: (lbs)"
+                                        value={minimumAircraftWeight}
+                                        onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
+                                    />
+
+                                    <input
+                                        type="number"
+                                        placeholder="Maximum aircraft wgt: (lbs)"
+                                        value={maximumAircraftWeight}
+                                        onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
+                                    />
+
+                                    <button onClick={updateSelectedRoute} style={{ marginLeft: '10px' }}>
+                                        Update Route Attributes
+                                    </button>
+                                </>
+                            )}
+
+                        </div>
                     )}
 
-                </div>
-            )}
-
-            {!readOnly && mapMode === 'create_site' && sitePayload && (
-                <div style={{ padding: '10px' }}>
-                    <h3>Site Payload Preview</h3>
-                    <pre>{JSON.stringify(sitePayload, null, 2)}</pre>
-                </div>
-            )}
-
-            {!readOnly && mapMode === 'create_zone' && zonePayload && (
-                <div style={{ padding: '10px' }}>
-                    <h3>Zone Payload Preview</h3>
-                    <pre>{JSON.stringify(zonePayload, null, 2)}</pre>
-                </div>
-            )}
-
-            {!readOnly && mapMode === 'create_droneport' && droneportPayload && (
-                <div style={{ padding: '10px' }}>
-                    <h3>DronePort Payload Preview</h3>
-                    <pre>{JSON.stringify(droneportPayload, null, 2)}</pre>
-                </div>
-            )}
-
-            {!readOnly && mapMode === 'create_route' && routePayload && (
-                <div style={{ padding: '10px' }}>
-                    <h3>Route Payload Preview</h3>
-                    <pre>{JSON.stringify(routePayload, null, 2)}</pre>
-                </div>
-            )}
-
-
-            {!readOnly && selectedObject && (
-                <div style={{ padding: '10px' }}>
-                    <h3>Selected Object</h3>
-
-                    <button
-                        onClick={() => setSelectedObject(null)}
-                        style={{ marginBottom: '10px' }}
-                    >
-                        Clear Selection
-                    </button>
-
-                    {mapMode === 'delete' && (
-                        <button
-                            onClick={deleteSelectedObject}
-                            style={{ marginLeft: '10px', marginBottom: '10px' }}
-                        >
-                            Delete Selected
-                        </button>
+                    {!readOnly && mapMode === 'create_site' && sitePayload && (
+                        <div style={{ padding: '10px' }}>
+                            <h3>Site Payload Preview</h3>
+                            <pre>{JSON.stringify(sitePayload, null, 2)}</pre>
+                        </div>
                     )}
 
-                    {mapMode === 'update' && selectedObject.type !== 'site' && (
-                        <>
+                    {!readOnly && mapMode === 'create_zone' && zonePayload && (
+                        <div style={{ padding: '10px' }}>
+                            <h3>Zone Payload Preview</h3>
+                            <pre>{JSON.stringify(zonePayload, null, 2)}</pre>
+                        </div>
+                    )}
+
+                    {!readOnly && mapMode === 'create_droneport' && droneportPayload && (
+                        <div style={{ padding: '10px' }}>
+                            <h3>DronePort Payload Preview</h3>
+                            <pre>{JSON.stringify(droneportPayload, null, 2)}</pre>
+                        </div>
+                    )}
+
+                    {!readOnly && mapMode === 'create_route' && routePayload && (
+                        <div style={{ padding: '10px' }}>
+                            <h3>Route Payload Preview</h3>
+                            <pre>{JSON.stringify(routePayload, null, 2)}</pre>
+                        </div>
+                    )}
+
+
+                    {!readOnly && selectedObject && (
+                        <div style={{ padding: '10px' }}>
+                            <h3>Selected Object</h3>
+
                             <button
-                                onClick={surveySelectedObject}
-                                style={{ marginLeft: '10px', marginBottom: '10px' }}
+                                onClick={() => setSelectedObject(null)}
+                                style={{ marginBottom: '10px' }}
                             >
-                                Mark Surveyed
+                                Clear Selection
                             </button>
 
-                            <button
-                                onClick={expireSurveySelectedObject}
-                                style={{ marginLeft: '10px', marginBottom: '10px' }}
-                            >
-                                Expire Survey
-                            </button>
+                            {mapMode === 'delete' && (
+                                <button
+                                    onClick={deleteSelectedObject}
+                                    style={{ marginLeft: '10px', marginBottom: '10px' }}
+                                >
+                                    Delete Selected
+                                </button>
+                            )}
 
-                            <button
-                                onClick={deactivateSelectedObject}
-                                style={{ marginLeft: '10px', marginBottom: '10px' }}
-                            >
-                                Deactivate Overlay
-                            </button>
-                        </>
+                            {mapMode === 'update' && selectedObject.type !== 'site' && (
+                                <>
+                                    <button
+                                        onClick={surveySelectedObject}
+                                        style={{ marginLeft: '10px', marginBottom: '10px' }}
+                                    >
+                                        Mark Surveyed
+                                    </button>
+
+                                    <button
+                                        onClick={expireSurveySelectedObject}
+                                        style={{ marginLeft: '10px', marginBottom: '10px' }}
+                                    >
+                                        Expire Survey
+                                    </button>
+
+                                    <button
+                                        onClick={deactivateSelectedObject}
+                                        style={{ marginLeft: '10px', marginBottom: '10px' }}
+                                    >
+                                        Deactivate Overlay
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'update' && selectedObject.type === 'site' && (
+                                <>
+                                    <button
+                                        onClick={surveySelectedSitePackage}
+                                        style={{ marginLeft: '10px', marginBottom: '10px' }}
+                                    >
+                                        Mark Site Package Surveyed
+                                    </button>
+
+                                    <button
+                                        onClick={expireSelectedSitePackage}
+                                        style={{ marginLeft: '10px', marginBottom: '10px' }}
+                                    >
+                                        Expire Site Package Survey
+                                    </button>
+
+                                    <button
+                                        onClick={deactivateSelectedSitePackage}
+                                        style={{ marginLeft: '10px', marginBottom: '10px' }}
+                                    >
+                                        Deactivate Site Package
+                                    </button>
+                                </>
+                            )}
+
+
+                            <pre>{JSON.stringify(selectedObject, null, 2)}</pre>
+                        </div>
                     )}
 
-                    {mapMode === 'update' && selectedObject.type === 'site' && (
-                        <>
-                            <button
-                                onClick={surveySelectedSitePackage}
-                                style={{ marginLeft: '10px', marginBottom: '10px' }}
-                            >
-                                Mark Site Package Surveyed
-                            </button>
-
-                            <button
-                                onClick={expireSelectedSitePackage}
-                                style={{ marginLeft: '10px', marginBottom: '10px' }}
-                            >
-                                Expire Site Package Survey
-                            </button>
-
-                            <button
-                                onClick={deactivateSelectedSitePackage}
-                                style={{ marginLeft: '10px', marginBottom: '10px' }}
-                            >
-                                Deactivate Site Package
-                            </button>
-                        </>
+                    {!readOnly && (
+                        <div style={{ padding: '10px' }}>
+                            Current Center: {currentCenter[0].toFixed(6)},{' '}
+                            {currentCenter[1].toFixed(6)}
+                        </div>
                     )}
-
-
-                    <pre>{JSON.stringify(selectedObject, null, 2)}</pre>
                 </div>
             )}
 
-            {!readOnly && (
-                <div style={{ padding: '10px' }}>
-                    Current Center: {currentCenter[0].toFixed(6)},{' '}
-                    {currentCenter[1].toFixed(6)}
-                </div>
-            )}
+            <div style={{ height: '100vh', width: '100%' }}>
 
-            <MapContainer
-                center={mapCenter}
-                zoom={DEFAULT_MAP_ZOOM}
-                style={{ height: '600px', width: '100%' }}
-            >
-                <TileLayer
-                    attribution={MAP_TILE_ATTRIBUTION}
-                    url={MAP_TILE_URL}
-                />
+                <MapContainer
+                    center={mapCenter}
+                    zoom={DEFAULT_MAP_ZOOM}
+                    style={{ height: '100%', width: '100%' }}
+                >
+                    <TileLayer
+                        attribution={MAP_TILE_ATTRIBUTION}
+                        url={MAP_TILE_URL}
+                    />
 
-                <Pane name="sitesPane" style={{ zIndex: 400 }} />
-                <Pane name="zonesPane" style={{ zIndex: 410 }} />
-                <Pane name="routesPane" style={{ zIndex: 420 }} />
-                <Pane name="droneportsPane" style={{ zIndex: 430 }} />
-                <Pane name="editPane" style={{ zIndex: 500 }} />
+                    <Pane name="sitesPane" style={{ zIndex: 400 }} />
+                    <Pane name="zonesPane" style={{ zIndex: 410 }} />
+                    <Pane name="routesPane" style={{ zIndex: 420 }} />
+                    <Pane name="droneportsPane" style={{ zIndex: 430 }} />
+                    <Pane name="editPane" style={{ zIndex: 500 }} />
 
-                <MapClickHandler onMapClick={handleMapClick} />
-                <MapPositionTracker onMove={setCurrentCenter} />
+                    <MapClickHandler onMapClick={handleMapClick} />
+                    <MapPositionTracker onMove={setCurrentCenter} />
 
-                {points.map((point, index) => (
-                    <Marker pane="editPane" key={index} position={[point.lat, point.lng]}>
-                        <Popup>
-                            Boundary Point {index + 1}
-                            <br />
-                            Lat: {point.lat.toFixed(6)}
-                            <br />
-                            Lng: {point.lng.toFixed(6)}
-                        </Popup>
-                    </Marker>
-                ))}
+                    {points.map((point, index) => (
+                        <Marker pane="editPane" key={index} position={[point.lat, point.lng]}>
+                            <Popup>
+                                Boundary Point {index + 1}
+                                <br />
+                                Lat: {point.lat.toFixed(6)}
+                                <br />
+                                Lng: {point.lng.toFixed(6)}
+                            </Popup>
+                        </Marker>
+                    ))}
 
-                {(mapMode === 'create_site' || mapMode === 'create_zone') &&
-                    points.length >= 3 && <Polygon pane="editPane" positions={polygonPositions} />}
+                    {(mapMode === 'create_site' || mapMode === 'create_zone') && points.length >= 3 && (
+                        <Polygon pane="editPane" positions={polygonPositions} />
+                    )}
 
-                {mapMode === 'create_route' &&
-                    points.length >= 4 && (
+                    {mapMode === 'create_route' && points.length >= 4 && (
                         <Polyline pane="editPane" positions={polylinePositions} />
                     )}
 
-                {mapMode === 'create_droneport' && points.length === 1 && (
-                    <Circle
-                        pane="editPane"
-                        center={[points[0].lat, points[0].lng]}
-                        radius={(droneportDiameter / 2) * 0.3048}
-                        pathOptions={{
-                            color: 'purple',
-                            weight: 3,
-                            fillOpacity: 0.15,
-                        }}
-                    />
-                )}
-
-                {savedSites
-                    .filter(
-                        (site) =>
-                            site.geometry &&
-                            site.geometry.type === 'Polygon' &&
-                            Array.isArray(site.geometry.coordinates) &&
-                            Array.isArray(site.geometry.coordinates[0]) &&
-                            site.geometry.coordinates[0].length >= 4
-                    )
-                    .map((site) => (
-                        <Polygon
-                            pane="sitesPane"
-                            key={`${site.site_id}-${mapMode}`}
-                            positions={site.geometry.coordinates[0].map((coordinate) => [
-                                coordinate[1],
-                                coordinate[0],
-                            ])}
-                            pathOptions={{
-                                color: site.operational_status === 'active' ? 'gray' : 'gray',
-                                weight: 3,
-                                fillOpacity: 0.15,
-                                dashArray: site.operational_status === 'active' ? null : '4, 8',
-                            }}
-                            bubblingMouseEvents={false}
-                            interactive={
-                                mapMode === 'view' ||
-                                mapMode === 'update' ||
-                                mapMode === 'delete'
-                            }
-                            eventHandlers={{
-                                click: () => {
-                                    if (mapMode === 'update' || mapMode === 'delete') {
-                                        setSelectedObject({
-                                            type: 'site',
-                                            data: site,
-                                        });
-
-                                        if (mapMode === 'update') {
-                                            setSiteDescription(site.description || '');
-                                            setMinimumAltitude(site.minimum_altitude_ft ?? 0);
-                                            setMaximumAltitude(site.maximum_altitude_ft ?? 400);
-                                        }
-                                    }
-                                },
-                            }}
-                        >
-                            {mapMode === 'view' && (
-                                <Popup>
-                                    <strong>{site.site_name}</strong>
-                                    <br />
-                                    Type: {site.site_type}
-                                    <br />
-                                    Status: {site.operational_status}
-                                    <br />
-                                    Survey: {site.survey_status}
-                                    <br />
-                                    Authority ID: {site.authority_id}
-                                    <br />
-                                    Site ID: {site.site_id}
-                                    <br />
-                                    Created by: {site.created_by}
-                                    <br />
-                                    Description: {site.description}
-                                </Popup>
-                            )}
-                        </Polygon>
-                    ))}
-
-                {savedZones
-                    .filter(
-                        (zone) =>
-                            zone.geometry &&
-                            zone.geometry.type === 'Polygon' &&
-                            Array.isArray(zone.geometry.coordinates) &&
-                            Array.isArray(zone.geometry.coordinates[0]) &&
-                            zone.geometry.coordinates[0].length >= 4
-                    )
-                    .map((zone) => (
-                        <Polygon
-                            pane="zonesPane"
-                            key={`${zone.zone_id}-${mapMode}`}
-                            positions={zone.geometry.coordinates[0].map((coordinate) => [
-                                coordinate[1],
-                                coordinate[0],
-                            ])}
-                            pathOptions={{
-                                color: zone.operational_status === 'active' ? 'red' : 'red',
-                                weight: 3,
-                                fillOpacity: zone.zone_type === 'inclusion' ? 0.0 : 0.15,
-                                dashArray: zone.operational_status === 'active' ? null : '4, 8',
-                            }}
-                            bubblingMouseEvents={false}
-                            interactive={
-                                mapMode === 'view' ||
-                                mapMode === 'update' ||
-                                mapMode === 'delete'
-                            }
-                            eventHandlers={{
-                                click: () => {
-                                    if (mapMode === 'update' || mapMode === 'delete') {
-                                        setSelectedObject({
-                                            type: 'zone',
-                                            data: zone,
-                                        });
-
-                                        if (mapMode === 'update') {
-                                            setZoneName(zone.zone_name);
-                                            setZoneType(zone.zone_type);
-                                            setMinimumAltitude(zone.minimum_altitude_ft ?? 0);
-                                            setMaximumAltitude(zone.maximum_altitude_ft ?? 400);
-                                        }
-                                    }
-                                },
-                            }}
-                        >
-                            {mapMode === 'view' && (
-                                <Popup>
-                                    <strong>{zone.zone_name}</strong>
-                                    <br />
-                                    Type: {zone.zone_type}
-                                    <br />
-                                    Status: {zone.operational_status}
-                                    <br />
-                                    Survey: {zone.survey_status}
-                                    <br />
-                                    Site ID: {zone.site_id}
-                                    <br />
-                                    Zone ID: {zone.zone_id}
-                                    <br />
-                                    Created by: {zone.created_by}
-                                </Popup>
-                            )}
-                        </Polygon>
-                    ))}
-
-                {savedDroneports
-                    .filter(
-                        (droneport) =>
-                            droneport.geometry &&
-                            droneport.geometry.type === 'Point' &&
-                            Array.isArray(droneport.geometry.coordinates)
-                    )
-                    .map((droneport) => (
+                    {mapMode === 'create_droneport' && points.length === 1 && (
                         <Circle
-                            pane="droneportsPane"
-                            key={`${droneport.droneport_id}-${mapMode}`}
-                            center={[
-                                droneport.geometry.coordinates[1],
-                                droneport.geometry.coordinates[0],
-                            ]}
-                            radius={(droneport.droneport_diameter_ft / 2) * 0.3048}
+                            pane="editPane"
+                            center={[points[0].lat, points[0].lng]}
+                            radius={(droneportDiameter / 2) * 0.3048}
                             pathOptions={{
                                 color: 'purple',
                                 weight: 3,
                                 fillOpacity: 0.15,
                             }}
-                            bubblingMouseEvents={false}
-                            interactive={
-                                mapMode === 'view' ||
-                                mapMode === 'update' ||
-                                mapMode === 'delete'
-                            }
-                            eventHandlers={{
-                                click: () => {
-                                    if (mapMode === 'update' || mapMode === 'delete') {
-                                        setSelectedObject({
-                                            type: 'droneport',
-                                            data: droneport,
-                                        });
+                        />
+                    )}
 
-                                        if (mapMode === 'update') {
-                                            setDroneportName(droneport.droneport_name);
-                                            setDroneportType(droneport.droneport_type);
-                                            setDroneportDiameter(droneport.droneport_diameter_ft ?? 25);
-                                        }
-                                    }
-                                },
-                            }}
-                        >
-                            {mapMode === 'view' && (
-                                <Popup>
-                                    <strong>{droneport.droneport_name}</strong>
-                                    <br />
-                                    Type: {droneport.droneport_type}
-                                    <br />
-                                    Status: {droneport.operational_status}
-                                    <br />
-                                    Survey: {droneport.survey_status}
-                                    <br />
-                                    Site ID: {droneport.site_id}
-                                    <br />
-                                    Droneport ID: {droneport.droneport_id}
-                                    <br />
-                                    Diameter: {droneport.droneport_diameter_ft} ft
-                                    <br />
-                                    Created by: {droneport.created_by}
-                                </Popup>
-                            )}
-                        </Circle>
-                    ))}
-
-                {savedRoutes
-                    .filter(
-                        (route) =>
-                            route.geometry &&
-                            route.geometry.type === 'LineString' &&
-                            Array.isArray(route.geometry.coordinates) &&
-                            route.geometry.coordinates.length >= 4
-                    )
-                    .map((route) => {
-                        const routePositions = route.geometry.coordinates.map((coordinate) => [
-                            coordinate[1],
-                            coordinate[0],
-                        ]);
-
-                        const leftRoutePositions = offsetPositions(routePositions, 5);
-                        const rightRoutePositions = offsetPositions(routePositions, -5);
-
-                        const routePathOptions = {
-                            color: 'green',
-                            weight: mapMode === 'update' || mapMode === 'delete' ? 2 : 2,
-                            opacity: 0.8,
-                            dashArray: route.operational_status === 'active' ? null : '4, 8',
-                        };
-
-                        const selectRoute = () => {
-                            if (mapMode === 'update' || mapMode === 'delete') {
-                                setSelectedObject({
-                                    type: 'route',
-                                    data: route,
-                                });
-
-                                if (mapMode === 'update') {
-                                    setRouteName(route.route_name);
-                                    setRouteType(route.route_type);
-                                    setMinimumAircraftWeight(route.minimum_aircraft_weight_lbs ?? 4);
-                                    setMaximumAircraftWeight(route.maximum_aircraft_weight_lbs ?? 50);
-                                    setRouteBuffering(route.buffered ?? 0);
+                    {savedSites
+                        .filter(
+                            (site) =>
+                                site.geometry &&
+                                site.geometry.type === 'Polygon' &&
+                                Array.isArray(site.geometry.coordinates) &&
+                                Array.isArray(site.geometry.coordinates[0]) &&
+                                site.geometry.coordinates[0].length >= 4
+                        )
+                        .map((site) => (
+                            <Polygon
+                                pane="sitesPane"
+                                key={`${site.site_id}-${mapMode}`}
+                                positions={site.geometry.coordinates[0].map((coordinate) => [
+                                    coordinate[1],
+                                    coordinate[0],
+                                ])}
+                                pathOptions={{
+                                    color: site.operational_status === 'active' ? 'gray' : 'gray',
+                                    weight: 3,
+                                    fillOpacity: 0.15,
+                                    dashArray: site.operational_status === 'active' ? null : '4, 8',
+                                }}
+                                bubblingMouseEvents={false}
+                                interactive={
+                                    mapMode === 'view' ||
+                                    mapMode === 'update' ||
+                                    mapMode === 'delete'
                                 }
-                            }
-                        };
+                                eventHandlers={{
+                                    click: () => {
+                                        if (mapMode === 'update' || mapMode === 'delete') {
+                                            setSelectedObject({
+                                                type: 'site',
+                                                data: site,
+                                            });
 
-                        return route.direction === 2 ? (
-                            <Fragment key={`${route.route_id}-bidirectional-${mapMode}`}>
-                                <Polyline
-                                    pane="routesPane"
-                                    key={`${route.route_id}-left-${mapMode}`}
-                                    positions={leftRoutePositions}
-                                    pathOptions={routePathOptions}
-                                    bubblingMouseEvents={false}
-                                    interactive={
-                                        mapMode === 'view' ||
-                                        mapMode === 'update' ||
-                                        mapMode === 'delete'
+                                            if (mapMode === 'update') {
+                                                setSiteDescription(site.description || '');
+                                                setMinimumAltitude(site.minimum_altitude_ft ?? 0);
+                                                setMaximumAltitude(site.maximum_altitude_ft ?? 400);
+                                            }
+                                        }
+                                    },
+                                }}
+                            >
+                                {mapMode === 'view' && (
+                                    <Popup>
+                                        <strong>{site.site_name}</strong>
+                                        <br />
+                                        Type: {site.site_type}
+                                        <br />
+                                        Status: {site.operational_status}
+                                        <br />
+                                        Survey: {site.survey_status}
+                                        <br />
+                                        Authority ID: {site.authority_id}
+                                        <br />
+                                        Site ID: {site.site_id}
+                                        <br />
+                                        Created by: {site.created_by}
+                                        <br />
+                                        Description: {site.description}
+                                    </Popup>
+                                )}
+                            </Polygon>
+                        ))}
+
+                    {savedZones
+                        .filter(
+                            (zone) =>
+                                zone.geometry &&
+                                zone.geometry.type === 'Polygon' &&
+                                Array.isArray(zone.geometry.coordinates) &&
+                                Array.isArray(zone.geometry.coordinates[0]) &&
+                                zone.geometry.coordinates[0].length >= 4
+                        )
+                        .map((zone) => (
+                            <Polygon
+                                pane="zonesPane"
+                                key={`${zone.zone_id}-${mapMode}`}
+                                positions={zone.geometry.coordinates[0].map((coordinate) => [
+                                    coordinate[1],
+                                    coordinate[0],
+                                ])}
+                                pathOptions={{
+                                    color: zone.operational_status === 'active' ? 'red' : 'red',
+                                    weight: 3,
+                                    fillOpacity: zone.zone_type === 'inclusion' ? 0.0 : 0.15,
+                                    dashArray: zone.operational_status === 'active' ? null : '4, 8',
+                                }}
+                                bubblingMouseEvents={false}
+                                interactive={
+                                    mapMode === 'view' ||
+                                    mapMode === 'update' ||
+                                    mapMode === 'delete'
+                                }
+                                eventHandlers={{
+                                    click: () => {
+                                        if (mapMode === 'update' || mapMode === 'delete') {
+                                            setSelectedObject({
+                                                type: 'zone',
+                                                data: zone,
+                                            });
+
+                                            if (mapMode === 'update') {
+                                                setZoneName(zone.zone_name);
+                                                setZoneType(zone.zone_type);
+                                                setMinimumAltitude(zone.minimum_altitude_ft ?? 0);
+                                                setMaximumAltitude(zone.maximum_altitude_ft ?? 400);
+                                            }
+                                        }
+                                    },
+                                }}
+                            >
+                                {mapMode === 'view' && (
+                                    <Popup>
+                                        <strong>{zone.zone_name}</strong>
+                                        <br />
+                                        Type: {zone.zone_type}
+                                        <br />
+                                        Status: {zone.operational_status}
+                                        <br />
+                                        Survey: {zone.survey_status}
+                                        <br />
+                                        Site ID: {zone.site_id}
+                                        <br />
+                                        Zone ID: {zone.zone_id}
+                                        <br />
+                                        Created by: {zone.created_by}
+                                    </Popup>
+                                )}
+                            </Polygon>
+                        ))}
+
+                    {savedDroneports
+                        .filter(
+                            (droneport) =>
+                                droneport.geometry &&
+                                droneport.geometry.type === 'Point' &&
+                                Array.isArray(droneport.geometry.coordinates)
+                        )
+                        .map((droneport) => (
+                            <Circle
+                                pane="droneportsPane"
+                                key={`${droneport.droneport_id}-${mapMode}`}
+                                center={[
+                                    droneport.geometry.coordinates[1],
+                                    droneport.geometry.coordinates[0],
+                                ]}
+                                radius={(droneport.droneport_diameter_ft / 2) * 0.3048}
+                                pathOptions={{
+                                    color: 'purple',
+                                    weight: 3,
+                                    fillOpacity: 0.15,
+                                }}
+                                bubblingMouseEvents={false}
+                                interactive={
+                                    mapMode === 'view' ||
+                                    mapMode === 'update' ||
+                                    mapMode === 'delete'
+                                }
+                                eventHandlers={{
+                                    click: () => {
+                                        if (mapMode === 'update' || mapMode === 'delete') {
+                                            setSelectedObject({
+                                                type: 'droneport',
+                                                data: droneport,
+                                            });
+
+                                            if (mapMode === 'update') {
+                                                setDroneportName(droneport.droneport_name);
+                                                setDroneportType(droneport.droneport_type);
+                                                setDroneportDiameter(droneport.droneport_diameter_ft ?? 25);
+                                            }
+                                        }
+                                    },
+                                }}
+                            >
+                                {mapMode === 'view' && (
+                                    <Popup>
+                                        <strong>{droneport.droneport_name}</strong>
+                                        <br />
+                                        Type: {droneport.droneport_type}
+                                        <br />
+                                        Status: {droneport.operational_status}
+                                        <br />
+                                        Survey: {droneport.survey_status}
+                                        <br />
+                                        Site ID: {droneport.site_id}
+                                        <br />
+                                        Droneport ID: {droneport.droneport_id}
+                                        <br />
+                                        Diameter: {droneport.droneport_diameter_ft} ft
+                                        <br />
+                                        Created by: {droneport.created_by}
+                                    </Popup>
+                                )}
+                            </Circle>
+                        ))}
+
+                    {savedRoutes
+                        .filter(
+                            (route) =>
+                                route.geometry &&
+                                route.geometry.type === 'LineString' &&
+                                Array.isArray(route.geometry.coordinates) &&
+                                route.geometry.coordinates.length >= 4
+                        )
+                        .map((route) => {
+                            const routePositions = route.geometry.coordinates.map((coordinate) => [
+                                coordinate[1],
+                                coordinate[0],
+                            ]);
+
+                            const leftRoutePositions = offsetPositions(routePositions, 5);
+                            const rightRoutePositions = offsetPositions(routePositions, -5);
+
+                            const routePathOptions = {
+                                color: 'green',
+                                weight: mapMode === 'update' || mapMode === 'delete' ? 2 : 2,
+                                opacity: 0.8,
+                                dashArray: route.operational_status === 'active' ? null : '4, 8',
+                            };
+
+                            const selectRoute = () => {
+                                if (mapMode === 'update' || mapMode === 'delete') {
+                                    setSelectedObject({
+                                        type: 'route',
+                                        data: route,
+                                    });
+
+                                    if (mapMode === 'update') {
+                                        setRouteName(route.route_name);
+                                        setRouteType(route.route_type);
+                                        setMinimumAircraftWeight(route.minimum_aircraft_weight_lbs ?? 4);
+                                        setMaximumAircraftWeight(route.maximum_aircraft_weight_lbs ?? 50);
+                                        setRouteBuffering(route.buffered ?? 0);
                                     }
-                                    eventHandlers={{
-                                        click: selectRoute,
-                                    }}
-                                >
-                                    <RouteArrows
+                                }
+                            };
+
+                            return route.direction === 2 ? (
+                                <Fragment key={`${route.route_id}-bidirectional-${mapMode}`}>
+                                    <Polyline
+                                        pane="routesPane"
+                                        key={`${route.route_id}-left-${mapMode}`}
                                         positions={leftRoutePositions}
-                                        direction={0}
-                                    />
-                                </Polyline>
+                                        pathOptions={routePathOptions}
+                                        bubblingMouseEvents={false}
+                                        interactive={
+                                            mapMode === 'view' ||
+                                            mapMode === 'update' ||
+                                            mapMode === 'delete'
+                                        }
+                                        eventHandlers={{
+                                            click: selectRoute,
+                                        }}
+                                    >
+                                        <RouteArrows
+                                            positions={leftRoutePositions}
+                                            direction={0}
+                                        />
+                                    </Polyline>
 
-                                <Polyline
-                                    pane="routesPane"
-                                    key={`${route.route_id}-right-${mapMode}`}
-                                    positions={rightRoutePositions}
-                                    pathOptions={routePathOptions}
-                                    bubblingMouseEvents={false}
-                                    interactive={
-                                        mapMode === 'view' ||
-                                        mapMode === 'update' ||
-                                        mapMode === 'delete'
-                                    }
-                                    eventHandlers={{
-                                        click: selectRoute,
-                                    }}
-                                >
-                                    <RouteArrows
+                                    <Polyline
+                                        pane="routesPane"
+                                        key={`${route.route_id}-right-${mapMode}`}
                                         positions={rightRoutePositions}
-                                        direction={1}
-                                    />
-                                </Polyline>
+                                        pathOptions={routePathOptions}
+                                        bubblingMouseEvents={false}
+                                        interactive={
+                                            mapMode === 'view' ||
+                                            mapMode === 'update' ||
+                                            mapMode === 'delete'
+                                        }
+                                        eventHandlers={{
+                                            click: selectRoute,
+                                        }}
+                                    >
+                                        <RouteArrows
+                                            positions={rightRoutePositions}
+                                            direction={1}
+                                        />
+                                    </Polyline>
 
-                                <Polyline
-                                    pane="routesPane"
-                                    positions={routePositions}
-                                    pathOptions={{
-                                        color: 'transparent',
-                                        weight: 24,
-                                        opacity: 0,
-                                    }}
-                                    bubblingMouseEvents={false}
-                                    interactive={
-                                        mapMode === 'view' ||
-                                        mapMode === 'update' ||
-                                        mapMode === 'delete'
-                                    }
-                                    eventHandlers={{
-                                        click: selectRoute,
-                                    }}
-                                >
-                                    {mapMode === 'view' && (
-                                        <RoutePopup route={route} />
-                                    )}
-                                </Polyline>
-
-                            </Fragment>
-                        ) : (
-                            <>
-                                <Polyline
-                                    pane="routesPane"
-                                    key={`${route.route_id}-${mapMode}`}
-                                    positions={routePositions}
-                                    pathOptions={routePathOptions}
-                                    bubblingMouseEvents={false}
-                                    interactive={
-                                        mapMode === 'view' ||
-                                        mapMode === 'update' ||
-                                        mapMode === 'delete'
-                                    }
-                                    eventHandlers={{
-                                        click: selectRoute,
-                                    }}
-                                >
-                                    <RouteArrows
+                                    <Polyline
+                                        pane="routesPane"
                                         positions={routePositions}
-                                        direction={route.direction}
-                                    />
-                                </Polyline>
+                                        pathOptions={{
+                                            color: 'transparent',
+                                            weight: 24,
+                                            opacity: 0,
+                                        }}
+                                        bubblingMouseEvents={false}
+                                        interactive={
+                                            mapMode === 'view' ||
+                                            mapMode === 'update' ||
+                                            mapMode === 'delete'
+                                        }
+                                        eventHandlers={{
+                                            click: selectRoute,
+                                        }}
+                                    >
+                                        {mapMode === 'view' && (
+                                            <RoutePopup route={route} />
+                                        )}
+                                    </Polyline>
 
-                                <Polyline
-                                    pane="routesPane"
-                                    positions={routePositions}
-                                    pathOptions={{
-                                        color: 'transparent',
-                                        weight: 20,
-                                        opacity: 0,
-                                    }}
-                                    bubblingMouseEvents={false}
-                                    interactive={
-                                        mapMode === 'view' ||
-                                        mapMode === 'update' ||
-                                        mapMode === 'delete'
-                                    }
-                                    eventHandlers={{
-                                        click: selectRoute,
-                                    }}
-                                >
-                                    {mapMode === 'view' && (
-                                        <RoutePopup route={route} />
-                                    )}
+                                </Fragment>
+                            ) : (
+                                <>
+                                    <Polyline
+                                        pane="routesPane"
+                                        key={`${route.route_id}-${mapMode}`}
+                                        positions={routePositions}
+                                        pathOptions={routePathOptions}
+                                        bubblingMouseEvents={false}
+                                        interactive={
+                                            mapMode === 'view' ||
+                                            mapMode === 'update' ||
+                                            mapMode === 'delete'
+                                        }
+                                        eventHandlers={{
+                                            click: selectRoute,
+                                        }}
+                                    >
+                                        <RouteArrows
+                                            positions={routePositions}
+                                            direction={route.direction}
+                                        />
+                                    </Polyline>
 
-                                </Polyline>
-                            </>
-                        );
-                    })}
-            </MapContainer>
+                                    <Polyline
+                                        pane="routesPane"
+                                        positions={routePositions}
+                                        pathOptions={{
+                                            color: 'transparent',
+                                            weight: 20,
+                                            opacity: 0,
+                                        }}
+                                        bubblingMouseEvents={false}
+                                        interactive={
+                                            mapMode === 'view' ||
+                                            mapMode === 'update' ||
+                                            mapMode === 'delete'
+                                        }
+                                        eventHandlers={{
+                                            click: selectRoute,
+                                        }}
+                                    >
+                                        {mapMode === 'view' && (
+                                            <RoutePopup route={route} />
+                                        )}
+
+                                    </Polyline>
+                                </>
+                            );
+                        })}
+                </MapContainer>
+            </div>
         </div>
     );
 }
