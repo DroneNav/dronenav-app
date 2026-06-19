@@ -168,6 +168,10 @@ function RoutePopup({ route }) {
 export default function MapView({
     readOnly = false,
     siteId = null,
+    mode = 'editor',
+    overlayType = null,
+    overlayUuid = null,
+    authorityId: initialAuthorityId = null,
 }) {
     const [points, setPoints] = useState([]);
     const [mapMode, setMapMode] = useState('view');
@@ -196,9 +200,8 @@ export default function MapView({
     const [mapCenter, setMapCenter] = useState(DEFAULT_MAP_CENTER);
     const [currentCenter, setCurrentCenter] = useState(DEFAULT_MAP_CENTER);
     const [referenceData, setReferenceData] = useState(null);
-    const [authorityId, setAuthorityId] = useState(
-        '019e886f-5110-7067-90f9-17e73143a30a'
-    );
+    const [authorityId, setAuthorityId] = useState(initialAuthorityId || '');
+    const [selectedAuthorityId, setSelectedAuthorityId] = useState(authorityId || '019e886f-5110-7067-90f9-17e73143a30a');
     const [savedSites, setSavedSites] = useState([]);
     const [savedZones, setSavedZones] = useState([]);
     const [savedDroneports, setSavedDroneports] = useState([]);
@@ -220,8 +223,15 @@ export default function MapView({
         (droneport) => droneport.site_id === destinationSelectedSiteId
     );
 
+    const isReadOnly =
+        readOnly ||
+        mode === 'site_readonly' ||
+        mode === 'survey_readonly';
+
+    const isSurveyReadOnly = mode === 'survey_readonly';
+
     function handleMapClick(latlng) {
-        if (readOnly) {
+        if (isReadOnly) {
             return;
         }
 
@@ -361,6 +371,72 @@ export default function MapView({
         }
     }
 
+    async function loadSurveyOverlayPackage(selectedOverlayUuid) {
+        if (!selectedOverlayUuid) {
+            alert('Missing overlay uuid for survey readonly mode.');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/governance/overlays/${selectedOverlayUuid}/package`
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Load survey overlay package error:', JSON.stringify(result, null, 2));
+                alert('Failed to load survey overlay package.');
+                return;
+            }
+
+            setSavedSites(result.site ? [result.site] : []);
+            setSavedZones(result.zones || []);
+            setSavedDroneports(result.droneports || []);
+            setSavedRoutes(result.routes || []);
+
+            console.log('Loaded survey overlay package:', result);
+        } catch (error) {
+            console.error('Load survey overlay package failed:', error);
+            alert('Load survey overlay package failed. Check browser console.');
+        }
+    }
+
+    async function loadRouteContextPackage(routeId) {
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/routes/${routeId}/context-package`
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error('Load route context package error:', JSON.stringify(result, null, 2));
+                alert('Failed to load route context package.');
+                return;
+            }
+
+            const packages = result.packages || [];
+
+            const routeMap = new Map();
+
+            packages
+                .flatMap((pkg) => pkg.routes || [])
+                .forEach((route) => {
+                    routeMap.set(route.route_id, route);
+                });
+
+            setSavedSites(packages.map((pkg) => pkg.site).filter(Boolean));
+            setSavedZones(packages.flatMap((pkg) => pkg.zones || []));
+            setSavedDroneports(packages.flatMap((pkg) => pkg.droneports || []));
+            setSavedRoutes(Array.from(routeMap.values()));
+
+            console.log('Loaded route context package:', result);
+        } catch (error) {
+            console.error('Load route context package failed:', error);
+            alert('Load route context package failed. Check browser console.');
+        }
+    }
 
     async function loadReferenceData() {
         try {
@@ -385,10 +461,21 @@ export default function MapView({
     }
 
     useEffect(() => {
-        if (readOnly && siteId) {
+
+        if (
+            mode === 'survey_readonly' &&
+            overlayType === 'route' &&
+            overlayUuid
+        ) {
+            loadRouteContextPackage(overlayUuid);
+            return;
+        }
+
+        if (isReadOnly && siteId) {
             loadOverlayPackage(siteId);
         }
-    }, [readOnly, siteId]);
+
+    }, [isReadOnly, siteId, mode, overlayType, overlayUuid]);
 
     useEffect(() => {
         loadReferenceData();
@@ -961,6 +1048,29 @@ export default function MapView({
         return null;
     }
 
+    function isSelectedSurveyOverlay(type, data) {
+        if (!isSurveyReadOnly || !overlayUuid) {
+            return false;
+        }
+
+        switch (type) {
+            case 'site':
+                return data.site_id === overlayUuid;
+
+            case 'zone':
+                return data.zone_id === overlayUuid;
+
+            case 'droneport':
+                return data.droneport_id === overlayUuid;
+
+            case 'route':
+                return data.route_id === overlayUuid;
+
+            default:
+                return false;
+        }
+    }
+
     async function surveySelectedObject() {
         if (!selectedObject) {
             alert('Select an object first.');
@@ -1226,12 +1336,12 @@ export default function MapView({
         <div
             style={{
                 display: 'grid',
-                gridTemplateColumns: readOnly ? '1fr' : '360px 1fr',
+                gridTemplateColumns: isReadOnly ? '1fr' : '360px 1fr',
                 height: '100vh',
                 overflow: 'hidden',
             }}
         >
-            {!readOnly && (
+            {!isReadOnly && (
                 <div
                     style={{
                         padding: '10px',
@@ -1240,7 +1350,7 @@ export default function MapView({
                     }}
                 >
 
-                    {!readOnly && (
+                    {!isReadOnly && (
                         <div style={{ padding: '10px' }}>
 
                             <h3>Map Mode</h3>
@@ -1670,28 +1780,28 @@ export default function MapView({
                         </div>
                     )}
 
-                    {!readOnly && mapMode === 'create_site' && sitePayload && (
+                    {!isReadOnly && mapMode === 'create_site' && sitePayload && (
                         <div style={{ padding: '10px' }}>
                             <h3>Site Payload Preview</h3>
                             <pre>{JSON.stringify(sitePayload, null, 2)}</pre>
                         </div>
                     )}
 
-                    {!readOnly && mapMode === 'create_zone' && zonePayload && (
+                    {!isReadOnly && mapMode === 'create_zone' && zonePayload && (
                         <div style={{ padding: '10px' }}>
                             <h3>Zone Payload Preview</h3>
                             <pre>{JSON.stringify(zonePayload, null, 2)}</pre>
                         </div>
                     )}
 
-                    {!readOnly && mapMode === 'create_droneport' && droneportPayload && (
+                    {!isReadOnly && mapMode === 'create_droneport' && droneportPayload && (
                         <div style={{ padding: '10px' }}>
                             <h3>DronePort Payload Preview</h3>
                             <pre>{JSON.stringify(droneportPayload, null, 2)}</pre>
                         </div>
                     )}
 
-                    {!readOnly && mapMode === 'create_route' && routePayload && (
+                    {!isReadOnly && mapMode === 'create_route' && routePayload && (
                         <div style={{ padding: '10px' }}>
                             <h3>Route Payload Preview</h3>
                             <pre>{JSON.stringify(routePayload, null, 2)}</pre>
@@ -1699,7 +1809,7 @@ export default function MapView({
                     )}
 
 
-                    {!readOnly && selectedObject && (
+                    {!isReadOnly && selectedObject && (
                         <div style={{ padding: '10px' }}>
                             <h3>Selected Object</h3>
 
@@ -1774,7 +1884,7 @@ export default function MapView({
                         </div>
                     )}
 
-                    {!readOnly && (
+                    {!isReadOnly && (
                         <div style={{ padding: '10px' }}>
                             Current Center: {currentCenter[0].toFixed(6)},{' '}
                             {currentCenter[1].toFixed(6)}
@@ -1846,64 +1956,71 @@ export default function MapView({
                                 Array.isArray(site.geometry.coordinates[0]) &&
                                 site.geometry.coordinates[0].length >= 4
                         )
-                        .map((site) => (
-                            <Polygon
-                                pane="sitesPane"
-                                key={`${site.site_id}-${mapMode}`}
-                                positions={site.geometry.coordinates[0].map((coordinate) => [
-                                    coordinate[1],
-                                    coordinate[0],
-                                ])}
-                                pathOptions={{
-                                    color: site.operational_status === 'active' ? 'gray' : 'gray',
-                                    weight: 3,
-                                    fillOpacity: 0.15,
-                                    dashArray: site.operational_status === 'active' ? null : '4, 8',
-                                }}
-                                bubblingMouseEvents={false}
-                                interactive={
-                                    mapMode === 'view' ||
-                                    mapMode === 'update' ||
-                                    mapMode === 'delete'
-                                }
-                                eventHandlers={{
-                                    click: () => {
-                                        if (mapMode === 'update' || mapMode === 'delete') {
-                                            setSelectedObject({
-                                                type: 'site',
-                                                data: site,
-                                            });
+                        .map((site) => {
+                            const selectedSurveySite = isSelectedSurveyOverlay('site', site);
+                            const deEmphasizedSurveySite = isSurveyReadOnly && !selectedSurveySite;
 
-                                            if (mapMode === 'update') {
-                                                setSiteDescription(site.description || '');
-                                                setMinimumAltitude(site.minimum_altitude_ft ?? 0);
-                                                setMaximumAltitude(site.maximum_altitude_ft ?? 400);
+                            return (
+                                <Polygon
+                                    pane="sitesPane"
+                                    key={`${site.site_id}-${mapMode}`}
+                                    positions={site.geometry.coordinates[0].map((coordinate) => [
+                                        coordinate[1],
+                                        coordinate[0],
+                                    ])}
+                                    pathOptions={{
+                                        color: 'gray',
+                                        weight: selectedSurveySite ? 5 : 3,
+                                        opacity: deEmphasizedSurveySite ? 0.6 : 0.8,
+                                        fillOpacity: deEmphasizedSurveySite ? 0.08 : 0.15,
+                                        dashArray: site.operational_status === 'active' ? null : '4, 8',
+                                    }}
+                                    bubblingMouseEvents={false}
+                                    interactive={
+                                        mapMode === 'view' ||
+                                        mapMode === 'update' ||
+                                        mapMode === 'delete'
+                                    }
+                                    eventHandlers={{
+                                        click: () => {
+                                            if (mapMode === 'update' || mapMode === 'delete') {
+                                                setSelectedObject({
+                                                    type: 'site',
+                                                    data: site,
+                                                });
+
+                                                if (mapMode === 'update') {
+                                                    setSiteDescription(site.description || '');
+                                                    setMinimumAltitude(site.minimum_altitude_ft ?? 0);
+                                                    setMaximumAltitude(site.maximum_altitude_ft ?? 400);
+                                                }
                                             }
-                                        }
-                                    },
-                                }}
-                            >
-                                {mapMode === 'view' && (
-                                    <Popup>
-                                        <strong>{site.site_name}</strong>
-                                        <br />
-                                        Type: {site.site_type}
-                                        <br />
-                                        Status: {site.operational_status}
-                                        <br />
-                                        Survey: {site.survey_status}
-                                        <br />
-                                        Authority ID: {site.authority_id}
-                                        <br />
-                                        Site ID: {site.site_id}
-                                        <br />
-                                        Created by: {site.created_by}
-                                        <br />
-                                        Description: {site.description}
-                                    </Popup>
-                                )}
-                            </Polygon>
-                        ))}
+                                        },
+                                    }}
+                                >
+                                    {mapMode === 'view' && (
+                                        <Popup>
+                                            <strong>{site.site_name}</strong>
+                                            <br />
+                                            Type: {site.site_type}
+                                            <br />
+                                            Status: {site.operational_status}
+                                            <br />
+                                            Survey: {site.survey_status}
+                                            <br />
+                                            Authority ID: {site.authority_id}
+                                            <br />
+                                            Site ID: {site.site_id}
+                                            <br />
+                                            Created by: {site.created_by}
+                                            <br />
+                                            Description: {site.description}
+                                        </Popup>
+                                    )}
+                                </Polygon>
+                            );
+                        })
+                    }
 
                     {savedZones
                         .filter(
@@ -1914,63 +2031,74 @@ export default function MapView({
                                 Array.isArray(zone.geometry.coordinates[0]) &&
                                 zone.geometry.coordinates[0].length >= 4
                         )
-                        .map((zone) => (
-                            <Polygon
-                                pane="zonesPane"
-                                key={`${zone.zone_id}-${mapMode}`}
-                                positions={zone.geometry.coordinates[0].map((coordinate) => [
-                                    coordinate[1],
-                                    coordinate[0],
-                                ])}
-                                pathOptions={{
-                                    color: zone.operational_status === 'active' ? 'red' : 'red',
-                                    weight: 3,
-                                    fillOpacity: zone.zone_type === 'inclusion' ? 0.0 : 0.15,
-                                    dashArray: zone.operational_status === 'active' ? null : '4, 8',
-                                }}
-                                bubblingMouseEvents={false}
-                                interactive={
-                                    mapMode === 'view' ||
-                                    mapMode === 'update' ||
-                                    mapMode === 'delete'
-                                }
-                                eventHandlers={{
-                                    click: () => {
-                                        if (mapMode === 'update' || mapMode === 'delete') {
-                                            setSelectedObject({
-                                                type: 'zone',
-                                                data: zone,
-                                            });
+                        .map((zone) => {
+                            const selectedSurveyZone = isSelectedSurveyOverlay('zone', zone);
+                            const deEmphasizedSurveyZone = isSurveyReadOnly && !selectedSurveyZone;
 
-                                            if (mapMode === 'update') {
-                                                setZoneName(zone.zone_name);
-                                                setZoneType(zone.zone_type);
-                                                setMinimumAltitude(zone.minimum_altitude_ft ?? 0);
-                                                setMaximumAltitude(zone.maximum_altitude_ft ?? 400);
+                            return (
+                                <Polygon
+                                    pane="zonesPane"
+                                    key={`${zone.zone_id}-${mapMode}`}
+                                    positions={zone.geometry.coordinates[0].map((coordinate) => [
+                                        coordinate[1],
+                                        coordinate[0],
+                                    ])}
+                                    pathOptions={{
+                                        color: deEmphasizedSurveyZone ? 'gray' : 'red',
+                                        weight: selectedSurveyZone ? 5 : 3,
+                                        opacity: deEmphasizedSurveyZone ? 0.45 : 0.8,
+                                        fillOpacity: deEmphasizedSurveyZone
+                                            ? 0.06
+                                            : zone.zone_type === 'inclusion'
+                                                ? 0.0
+                                                : 0.15,
+                                        dashArray: zone.operational_status === 'active' ? null : '4, 8',
+                                    }}
+                                    bubblingMouseEvents={false}
+                                    interactive={
+                                        mapMode === 'view' ||
+                                        mapMode === 'update' ||
+                                        mapMode === 'delete'
+                                    }
+                                    eventHandlers={{
+                                        click: () => {
+                                            if (mapMode === 'update' || mapMode === 'delete') {
+                                                setSelectedObject({
+                                                    type: 'zone',
+                                                    data: zone,
+                                                });
+
+                                                if (mapMode === 'update') {
+                                                    setZoneName(zone.zone_name);
+                                                    setZoneType(zone.zone_type);
+                                                    setMinimumAltitude(zone.minimum_altitude_ft ?? 0);
+                                                    setMaximumAltitude(zone.maximum_altitude_ft ?? 400);
+                                                }
                                             }
-                                        }
-                                    },
-                                }}
-                            >
-                                {mapMode === 'view' && (
-                                    <Popup>
-                                        <strong>{zone.zone_name}</strong>
-                                        <br />
-                                        Type: {zone.zone_type}
-                                        <br />
-                                        Status: {zone.operational_status}
-                                        <br />
-                                        Survey: {zone.survey_status}
-                                        <br />
-                                        Site ID: {zone.site_id}
-                                        <br />
-                                        Zone ID: {zone.zone_id}
-                                        <br />
-                                        Created by: {zone.created_by}
-                                    </Popup>
-                                )}
-                            </Polygon>
-                        ))}
+                                        },
+                                    }}
+                                >
+                                    {mapMode === 'view' && (
+                                        <Popup>
+                                            <strong>{zone.zone_name}</strong>
+                                            <br />
+                                            Type: {zone.zone_type}
+                                            <br />
+                                            Status: {zone.operational_status}
+                                            <br />
+                                            Survey: {zone.survey_status}
+                                            <br />
+                                            Site ID: {zone.site_id}
+                                            <br />
+                                            Zone ID: {zone.zone_id}
+                                            <br />
+                                            Created by: {zone.created_by}
+                                        </Popup>
+                                    )}
+                                </Polygon>
+                            );
+                        })
+                    }
 
                     {savedDroneports
                         .filter(
@@ -1979,64 +2107,75 @@ export default function MapView({
                                 droneport.geometry.type === 'Point' &&
                                 Array.isArray(droneport.geometry.coordinates)
                         )
-                        .map((droneport) => (
-                            <Circle
-                                pane="droneportsPane"
-                                key={`${droneport.droneport_id}-${mapMode}`}
-                                center={[
-                                    droneport.geometry.coordinates[1],
-                                    droneport.geometry.coordinates[0],
-                                ]}
-                                radius={(droneport.droneport_diameter_ft / 2) * 0.3048}
-                                pathOptions={{
-                                    color: 'purple',
-                                    weight: 3,
-                                    fillOpacity: 0.15,
-                                }}
-                                bubblingMouseEvents={false}
-                                interactive={
-                                    mapMode === 'view' ||
-                                    mapMode === 'update' ||
-                                    mapMode === 'delete'
-                                }
-                                eventHandlers={{
-                                    click: () => {
-                                        if (mapMode === 'update' || mapMode === 'delete') {
-                                            setSelectedObject({
-                                                type: 'droneport',
-                                                data: droneport,
-                                            });
+                        .map((droneport) => {
+                            const selectedSurveyDroneport =
+                                isSelectedSurveyOverlay('droneport', droneport);
 
-                                            if (mapMode === 'update') {
-                                                setDroneportName(droneport.droneport_name);
-                                                setDroneportType(droneport.droneport_type);
-                                                setDroneportDiameter(droneport.droneport_diameter_ft ?? 25);
+                            const deEmphasizedSurveyDroneport =
+                                isSurveyReadOnly && !selectedSurveyDroneport;
+
+                            return (
+                                <Circle
+                                    pane="droneportsPane"
+                                    key={`${droneport.droneport_id}-${mapMode}`}
+                                    center={[
+                                        droneport.geometry.coordinates[1],
+                                        droneport.geometry.coordinates[0],
+                                    ]}
+                                    radius={(droneport.droneport_diameter_ft / 2) * 0.3048}
+                                    pathOptions={{
+                                        color: deEmphasizedSurveyDroneport ? 'gray' : 'purple',
+                                        fillColor: deEmphasizedSurveyDroneport ? 'gray' : 'purple',
+                                        weight: selectedSurveyDroneport ? 5 : 3,
+                                        opacity: deEmphasizedSurveyDroneport ? 0.45 : 0.8,
+                                        fillOpacity: deEmphasizedSurveyDroneport ? 0.10 : 0.15,
+                                    }}
+                                    bubblingMouseEvents={false}
+                                    interactive={
+                                        mapMode === 'view' ||
+                                        mapMode === 'update' ||
+                                        mapMode === 'delete'
+                                    }
+                                    eventHandlers={{
+                                        click: () => {
+                                            if (mapMode === 'update' || mapMode === 'delete') {
+                                                setSelectedObject({
+                                                    type: 'droneport',
+                                                    data: droneport,
+                                                });
+
+                                                if (mapMode === 'update') {
+                                                    setDroneportName(droneport.droneport_name);
+                                                    setDroneportType(droneport.droneport_type);
+                                                    setDroneportDiameter(droneport.droneport_diameter_ft ?? 25);
+                                                }
                                             }
-                                        }
-                                    },
-                                }}
-                            >
-                                {mapMode === 'view' && (
-                                    <Popup>
-                                        <strong>{droneport.droneport_name}</strong>
-                                        <br />
-                                        Type: {droneport.droneport_type}
-                                        <br />
-                                        Status: {droneport.operational_status}
-                                        <br />
-                                        Survey: {droneport.survey_status}
-                                        <br />
-                                        Site ID: {droneport.site_id}
-                                        <br />
-                                        Droneport ID: {droneport.droneport_id}
-                                        <br />
-                                        Diameter: {droneport.droneport_diameter_ft} ft
-                                        <br />
-                                        Created by: {droneport.created_by}
-                                    </Popup>
-                                )}
-                            </Circle>
-                        ))}
+                                        },
+                                    }}
+                                >
+                                    {mapMode === 'view' && (
+                                        <Popup>
+                                            <strong>{droneport.droneport_name}</strong>
+                                            <br />
+                                            Type: {droneport.droneport_type}
+                                            <br />
+                                            Status: {droneport.operational_status}
+                                            <br />
+                                            Survey: {droneport.survey_status}
+                                            <br />
+                                            Site ID: {droneport.site_id}
+                                            <br />
+                                            Droneport ID: {droneport.droneport_id}
+                                            <br />
+                                            Diameter: {droneport.droneport_diameter_ft} ft
+                                            <br />
+                                            Created by: {droneport.created_by}
+                                        </Popup>
+                                    )}
+                                </Circle>
+                            );
+                        })
+                    }
 
                     {savedRoutes
                         .filter(
@@ -2055,10 +2194,13 @@ export default function MapView({
                             const leftRoutePositions = offsetPositions(routePositions, 5);
                             const rightRoutePositions = offsetPositions(routePositions, -5);
 
+                            const selectedSurveyRoute = isSelectedSurveyOverlay('route', route);
+                            const deEmphasizedSurveyRoute = isSurveyReadOnly && !selectedSurveyRoute;
+
                             const routePathOptions = {
-                                color: 'green',
-                                weight: mapMode === 'update' || mapMode === 'delete' ? 2 : 2,
-                                opacity: 0.8,
+                                color: deEmphasizedSurveyRoute ? 'gray' : 'green',
+                                weight: selectedSurveyRoute ? 4 : 2,
+                                opacity: deEmphasizedSurveyRoute ? 0.35 : 0.8,
                                 dashArray: route.operational_status === 'active' ? null : '4, 8',
                             };
 
@@ -2148,7 +2290,7 @@ export default function MapView({
 
                                 </Fragment>
                             ) : (
-                                <>
+                                <Fragment key={`${route.route_id}-single-${mapMode}`}>
                                     <Polyline
                                         pane="routesPane"
                                         key={`${route.route_id}-${mapMode}`}
@@ -2193,7 +2335,7 @@ export default function MapView({
                                         )}
 
                                     </Polyline>
-                                </>
+                                </Fragment>
                             );
                         })}
                 </MapContainer>

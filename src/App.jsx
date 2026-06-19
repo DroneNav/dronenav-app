@@ -1,9 +1,7 @@
 import MapView from './components/MapView';
 
 function App() {
-  return (
-    <MapView />
-  );
+    return <MapView />;
 }
 
 export default App;
