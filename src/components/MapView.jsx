@@ -44,7 +44,12 @@ function MapClickHandler({ onMapClick }) {
     return null;
 }
 
-function RouteArrows({ positions, direction }) {
+function RouteArrows({
+    positions,
+    direction,
+    selected = false,
+    deEmphasized = false,
+}) {
     const map = useMapEvents({});
 
     useEffect(() => {
@@ -68,9 +73,10 @@ function RouteArrows({ positions, direction }) {
                             pixelSize: 6,
                             polygon: false,
                             pathOptions: {
-                                color: 'green',
+                                color: deEmphasized ? 'gray' : 'green',
                                 stroke: true,
-                                weight: 2,
+                                weight: selected ? 4 : 2,
+                                opacity: deEmphasized ? 0.35 : 0.8,
                                 interactive: false,
                             },
                         }),
@@ -2241,6 +2247,8 @@ export default function MapView({
                                         <RouteArrows
                                             positions={leftRoutePositions}
                                             direction={0}
+                                            selected={selectedSurveyRoute}
+                                            deEmphasized={deEmphasizedSurveyRoute}
                                         />
                                     </Polyline>
 
@@ -2262,6 +2270,8 @@ export default function MapView({
                                         <RouteArrows
                                             positions={rightRoutePositions}
                                             direction={1}
+                                            selected={selectedSurveyRoute}
+                                            deEmphasized={deEmphasizedSurveyRoute}
                                         />
                                     </Polyline>
 
@@ -2309,6 +2319,8 @@ export default function MapView({
                                         <RouteArrows
                                             positions={routePositions}
                                             direction={route.direction}
+                                            selected={selectedSurveyRoute}
+                                            deEmphasized={deEmphasizedSurveyRoute}
                                         />
                                     </Polyline>
 
