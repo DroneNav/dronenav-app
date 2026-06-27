@@ -212,6 +212,7 @@ export default function MapView({
     const [savedZones, setSavedZones] = useState([]);
     const [savedDroneports, setSavedDroneports] = useState([]);
     const [savedRoutes, setSavedRoutes] = useState([]);
+
     const pointLabel =
         mapMode === 'create_site'
             ? 'Site Boundary Points'
@@ -232,7 +233,8 @@ export default function MapView({
     const isReadOnly =
         readOnly ||
         mode === 'site_readonly' ||
-        mode === 'survey_readonly';
+        mode === 'survey_readonly' ||
+        mode === 'site_summary_readonly';
 
     const isSurveyReadOnly = mode === 'survey_readonly';
 
@@ -477,6 +479,11 @@ export default function MapView({
             return;
         }
 
+        if (mode === 'site_summary_readonly' && siteId) {
+            loadOverlayPackage(siteId);
+            return;
+        }
+
         if (isReadOnly && siteId) {
             loadOverlayPackage(siteId);
         }
@@ -486,6 +493,11 @@ export default function MapView({
     useEffect(() => {
         loadReferenceData();
     }, []);
+
+    const DEFAULT_ROUTE_WIDTH_FT = 10;
+    const DEFAULT_SPEED_LIMIT_MPH = 15;
+    const DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = 0;
+    const DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = 400;
 
     const polygonPositions = points.map((point) => [point.lat, point.lng]);
 
@@ -581,22 +593,7 @@ export default function MapView({
             }
             : null;
 
-    const routeSegmentAttributes =
-        points.length >= 4
-            ? points.slice(0, -1).map((point, index) => {
-                const isDepartureSegment = index === 0;
-                const isApproachSegment = index === points.length - 2;
-                const isApproachOrDeparture =
-                    isDepartureSegment || isApproachSegment;
-
-                return {
-                    route_width_ft: 10,
-                    minimum_altitude_ft: isApproachOrDeparture ? 0 : 45,
-                    maximum_altitude_ft: isApproachOrDeparture ? 55 : 400,
-                    speed_limit_mph: 15,
-                };
-            })
-            : [];
+    const generatedRouteSegmentAttributes = buildDefaultSegmentAttributes(points);
 
     const routePayload =
         routeJson && routeName.trim() && originSelectedSiteId && destinationSelectedSiteId
@@ -613,10 +610,22 @@ export default function MapView({
                 maximum_aircraft_weight_lbs: maximumAircraftWeight,
                 direction: Number(routeDirection),
                 buffered: routeBuffering,
-                segment_attributes: routeSegmentAttributes,
+                segment_attributes: generatedRouteSegmentAttributes,
                 geometry: routeJson,
             }
             : null;
+
+    const selectedRouteSegmentAttributes =
+        selectedObject &&
+            selectedObject.type === 'route' &&
+            selectedObject.data.geometry?.coordinates?.length >= 4
+            ? buildDefaultSegmentAttributes(
+                selectedObject.data.geometry.coordinates.map((coordinate) => ({
+                    lng: coordinate[0],
+                    lat: coordinate[1],
+                }))
+            )
+            : [];
 
     const routeUpdatePayload =
         selectedObject &&
@@ -627,9 +636,18 @@ export default function MapView({
                 minimum_aircraft_weight_lbs: minimumAircraftWeight,
                 maximum_aircraft_weight_lbs: maximumAircraftWeight,
                 buffered: routeBuffering,
+                segment_attributes:
+                    Array.isArray(selectedObject.data.segment_attributes) &&
+                        selectedObject.data.segment_attributes.length > 0
+                        ? selectedObject.data.segment_attributes
+                        : buildDefaultSegmentAttributes(
+                            selectedObject.data.geometry.coordinates.map((coordinate) => ({
+                                lng: coordinate[0],
+                                lat: coordinate[1],
+                            }))
+                        ),
             }
             : null;
-
 
     async function saveSite() {
         if (!sitePayload) {
@@ -1075,6 +1093,30 @@ export default function MapView({
             default:
                 return false;
         }
+    }
+
+    function buildDefaultSegmentAttributes(routePoints) {
+        if (!routePoints || routePoints.length < 4) {
+            return [];
+        }
+
+        return routePoints.slice(0, -1).map((point, index) => {
+            const isDepartureSegment = index === 0;
+            const isApproachSegment = index === routePoints.length - 2;
+            const isApproachOrDeparture =
+                isDepartureSegment || isApproachSegment;
+
+            return {
+                route_width_ft: DEFAULT_ROUTE_WIDTH_FT,
+                minimum_altitude_ft: isApproachOrDeparture
+                    ? DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT
+                    : 45,
+                maximum_altitude_ft: isApproachOrDeparture
+                    ? 55
+                    : DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT,
+                speed_limit_mph: DEFAULT_SPEED_LIMIT_MPH,
+            };
+        });
     }
 
     async function surveySelectedObject() {
