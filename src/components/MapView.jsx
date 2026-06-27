@@ -594,6 +594,7 @@ export default function MapView({
             : null;
 
     const generatedRouteSegmentAttributes = buildDefaultSegmentAttributes(points);
+    const [editableRouteSegmentAttributes, setEditableRouteSegmentAttributes] = useState([]);
 
     const routePayload =
         routeJson && routeName.trim() && originSelectedSiteId && destinationSelectedSiteId
@@ -637,14 +638,18 @@ export default function MapView({
                 maximum_aircraft_weight_lbs: maximumAircraftWeight,
                 buffered: routeBuffering,
                 segment_attributes:
-                    Array.isArray(selectedObject.data.segment_attributes) &&
-                        selectedObject.data.segment_attributes.length > 0
-                        ? selectedObject.data.segment_attributes
-                        : buildDefaultSegmentAttributes(
-                            selectedObject.data.geometry.coordinates.map((coordinate) => ({
-                                lng: coordinate[0],
-                                lat: coordinate[1],
-                            }))
+                    editableRouteSegmentAttributes.length > 0
+                        ? editableRouteSegmentAttributes
+                        : (
+                            Array.isArray(selectedObject.data.segment_attributes) &&
+                                selectedObject.data.segment_attributes.length > 0
+                                ? selectedObject.data.segment_attributes
+                                : buildDefaultSegmentAttributes(
+                                    selectedObject.data.geometry.coordinates.map((coordinate) => ({
+                                        lng: coordinate[0],
+                                        lat: coordinate[1],
+                                    }))
+                                )
                         ),
             }
             : null;
@@ -1119,6 +1124,31 @@ export default function MapView({
         });
     }
 
+    function updateEditableRouteSegmentAttribute(index, field, value) {
+        setEditableRouteSegmentAttributes((current) =>
+            current.map((segment, segmentIndex) =>
+                segmentIndex === index
+                    ? {
+                        ...segment,
+                        [field]: Number(value),
+                    }
+                    : segment
+            )
+        );
+    }
+
+    function getRouteSegmentLabel(index, totalSegments) {
+        if (index === 0) {
+            return 'Departure Segment';
+        }
+
+        if (index === totalSegments - 1) {
+            return 'Approach Segment';
+        }
+
+        return `Intermediate Segment ${index}`;
+    }
+
     async function surveySelectedObject() {
         if (!selectedObject) {
             alert('Select an object first.');
@@ -1587,6 +1617,8 @@ export default function MapView({
                                         ))}
                                     </select>
 
+                                    <br />
+
                                     <select
                                         value={destinationSelectedSiteId}
                                         onChange={(e) => {
@@ -1602,6 +1634,8 @@ export default function MapView({
                                         ))}
                                     </select>
 
+                                    <br />
+
                                     <select
                                         value={originSelectedDroneportId}
                                         onChange={(e) => setOriginSelectedDroneportId(e.target.value)}
@@ -1613,6 +1647,8 @@ export default function MapView({
                                             </option>
                                         ))}
                                     </select>
+
+                                    <br />
 
                                     <select
                                         value={destinationSelectedDroneportId}
@@ -1626,50 +1662,82 @@ export default function MapView({
                                         ))}
                                     </select>
 
-                                    <input
-                                        type="text"
-                                        placeholder="Route Name"
-                                        value={routeName}
-                                        onChange={(e) => setRouteName(e.target.value)}
-                                    />
+                                    <br />
 
-                                    <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
-                                        {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
-                                            <option key={value} value={value}>
-                                                {label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <label>
+                                        Route Name:{' '}
+                                        <input
+                                            type="text"
+                                            placeholder="Route Name"
+                                            value={routeName}
+                                            onChange={(e) => setRouteName(e.target.value)}
+                                        />
+                                    </label>
 
-                                    <input
-                                        type="number"
-                                        placeholder="4"
-                                        value={minimumAircraftWeight}
-                                        onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
-                                    />
+                                    <br />
 
-                                    <input
-                                        type="number"
-                                        placeholder="50"
-                                        value={maximumAircraftWeight}
-                                        onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
-                                    />
+                                    <label>
+                                        Route Type:{' '}
+                                        <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
+                                            {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
+                                                <option key={value} value={value}>
+                                                    {label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
 
-                                    <select
-                                        value={routeDirection}
-                                        onChange={(e) => setRouteDirection(e.target.value)}
-                                    >
-                                        <option value="2">Bi-directional</option>
-                                        <option value="0">One-way</option>
-                                        <option value="1">Reverse</option>
-                                    </select>
+                                    <br />
 
-                                    <input
-                                        type="number"
-                                        placeholder="0"
-                                        value={routeBuffering}
-                                        onChange={(e) => setRouteBuffering(Number(e.target.value))}
-                                    />
+                                    <label>
+                                        Minimum Aircraft Weight lbs:{' '}
+                                        <input
+                                            type="number"
+                                            placeholder="4"
+                                            value={minimumAircraftWeight}
+                                            onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
+                                        />
+                                    </label>
+
+                                    <br />
+
+                                    <label>
+                                        Maximum Aircraft Weight lbs:{' '}
+                                        <input
+                                            type="number"
+                                            placeholder="50"
+                                            value={maximumAircraftWeight}
+                                            onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
+                                        />
+                                    </label>
+
+                                    <br />
+
+                                    <label>
+                                        Route Direction:{' '}
+                                        <select
+                                            value={routeDirection}
+                                            onChange={(e) => setRouteDirection(e.target.value)}
+                                        >
+                                            <option value="2">Bi-directional</option>
+                                            <option value="0">One-way</option>
+                                            <option value="1">Reverse</option>
+                                        </select>
+                                    </label>
+
+                                    <br />
+
+                                    <label>
+                                        Route Buffer:{' '}
+                                        <input
+                                            type="number"
+                                            placeholder="0"
+                                            value={routeBuffering}
+                                            onChange={(e) => setRouteBuffering(Number(e.target.value))}
+                                        />
+                                    </label>
+
+                                    <br />
 
                                     <button onClick={saveRoute} style={{ marginLeft: '10px' }}>
                                         Save Route
@@ -1783,41 +1851,155 @@ export default function MapView({
                                 <>
                                     <h3>Update Route Attributes</h3>
 
-                                    <input
-                                        type="text"
-                                        placeholder="New route name"
-                                        value={routeName}
-                                        onChange={(e) => setRouteName(e.target.value)}
-                                    />
+                                    <label>
+                                        Route Name:{' '}
+                                        <input
+                                            type="text"
+                                            placeholder="Route Name"
+                                            value={routeName}
+                                            onChange={(e) => setRouteName(e.target.value)}
+                                        />
+                                    </label>
 
-                                    <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
-                                        {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
-                                            <option key={value} value={value}>
-                                                {label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                    <br />
 
-                                    <input
-                                        type="number"
-                                        placeholder="Buffer"
-                                        value={routeBuffering}
-                                        onChange={(e) => setRouteBuffering(Number(e.target.value))}
-                                    />
+                                    <label>
+                                        Route Type:{' '}
+                                        <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
+                                            {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
+                                                <option key={value} value={value}>
+                                                    {label}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </label>
 
-                                    <input
-                                        type="number"
-                                        placeholder="Minimum aircraft wgt: (lbs)"
-                                        value={minimumAircraftWeight}
-                                        onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
-                                    />
+                                    <br />
 
-                                    <input
-                                        type="number"
-                                        placeholder="Maximum aircraft wgt: (lbs)"
-                                        value={maximumAircraftWeight}
-                                        onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
-                                    />
+                                    <label>
+                                        Route Buffer:{' '}
+                                        <input
+                                            type="number"
+                                            placeholder="0"
+                                            value={routeBuffering}
+                                            onChange={(e) => setRouteBuffering(Number(e.target.value))}
+                                        />
+                                    </label>
+
+                                    <br />
+
+                                    <label>
+                                        Minimum Aircraft Weight lbs:{' '}
+                                        <input
+                                            type="number"
+                                            placeholder="4"
+                                            value={minimumAircraftWeight}
+                                            onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
+                                        />
+                                    </label>
+
+                                    <br />
+
+                                    <label>
+                                        Maximum Aircraft Weight lbs:{' '}
+                                        <input
+                                            type="number"
+                                            placeholder="50"
+                                            value={maximumAircraftWeight}
+                                            onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
+                                        />
+                                    </label>
+
+                                    <br />
+
+                                    {editableRouteSegmentAttributes.length > 0 && (
+                                        <div style={{ marginTop: '15px' }}>
+                                            <h4>Route Segment Attributes</h4>
+
+                                            {editableRouteSegmentAttributes.map((segment, index) => (
+                                                <div
+                                                    key={index}
+                                                    style={{
+                                                        border: '1px solid #ccc',
+                                                        padding: '8px',
+                                                        marginBottom: '8px',
+                                                    }}
+                                                >
+                                                    <strong>
+                                                        {getRouteSegmentLabel(index, editableRouteSegmentAttributes.length)}
+                                                    </strong>
+
+                                                    <br />
+
+                                                    <label>
+                                                        Width ft:{' '}
+                                                        <input
+                                                            type="number"
+                                                            value={segment.route_width_ft}
+                                                            onChange={(e) =>
+                                                                updateEditableRouteSegmentAttribute(
+                                                                    index,
+                                                                    'route_width_ft',
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                        />
+                                                    </label>
+
+                                                    <br />
+
+                                                    <label>
+                                                        Min AGL ft:{' '}
+                                                        <input
+                                                            type="number"
+                                                            value={segment.minimum_altitude_ft}
+                                                            onChange={(e) =>
+                                                                updateEditableRouteSegmentAttribute(
+                                                                    index,
+                                                                    'minimum_altitude_ft',
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                        />
+                                                    </label>
+
+                                                    <br />
+
+                                                    <label>
+                                                        Max AGL ft:{' '}
+                                                        <input
+                                                            type="number"
+                                                            value={segment.maximum_altitude_ft}
+                                                            onChange={(e) =>
+                                                                updateEditableRouteSegmentAttribute(
+                                                                    index,
+                                                                    'maximum_altitude_ft',
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                        />
+                                                    </label>
+
+                                                    <br />
+
+                                                    <label>
+                                                        Speed mph:{' '}
+                                                        <input
+                                                            type="number"
+                                                            value={segment.speed_limit_mph}
+                                                            onChange={(e) =>
+                                                                updateEditableRouteSegmentAttribute(
+                                                                    index,
+                                                                    'speed_limit_mph',
+                                                                    e.target.value
+                                                                )
+                                                            }
+                                                        />
+                                                    </label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
                                     <button onClick={updateSelectedRoute} style={{ marginLeft: '10px' }}>
                                         Update Route Attributes
@@ -2265,6 +2447,19 @@ export default function MapView({
                                         setMinimumAircraftWeight(route.minimum_aircraft_weight_lbs ?? 4);
                                         setMaximumAircraftWeight(route.maximum_aircraft_weight_lbs ?? 50);
                                         setRouteBuffering(route.buffered ?? 0);
+
+                                        const existingSegmentAttributes =
+                                            Array.isArray(route.segment_attributes) &&
+                                                route.segment_attributes.length > 0
+                                                ? route.segment_attributes
+                                                : buildDefaultSegmentAttributes(
+                                                    route.geometry.coordinates.map((coordinate) => ({
+                                                        lng: coordinate[0],
+                                                        lat: coordinate[1],
+                                                    }))
+                                                );
+
+                                        setEditableRouteSegmentAttributes(existingSegmentAttributes);
                                     }
                                 }
                             };
