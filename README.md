@@ -1,4 +1,4 @@
-![DroneNAV](img src="https://avatars.githubusercontent.com/u/287328252?s=400&u=42c97657ee8df9c220c0bf0d1cf7a0fe811c1fff&v=4" height="50%" width="50%")
+![DroneNAV](img src="https://avatars.githubusercontent.com/u/287328252?s=400&u=42c97657ee8df9c220c0bf0d1cf7a0fe811c1fff&v=4" height="100" width="100")
 
 ---
 
