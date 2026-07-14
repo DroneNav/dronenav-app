@@ -515,7 +515,12 @@ export default function MapView({
         points.length >= 3
             ? {
                 type: 'Polygon',
-                coordinates: [],
+                coordinates: [
+                    [
+                        ...points.map((point) => [point.lng, point.lat]),
+                        [points[0].lng, points[0].lat],
+                    ],
+                ],
             }
             : null;
 
