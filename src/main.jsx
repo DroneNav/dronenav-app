@@ -24,11 +24,34 @@ import MapView from './components/MapView';
 
 const rootElement = document.getElementById('root');
 
+function parseUuidList(value) {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 const mode = rootElement?.dataset?.mode || 'editor';
 const overlayType = rootElement?.dataset?.overlayType || null;
 const overlayUuid = rootElement?.dataset?.overlayUuid || null;
 const siteId = rootElement?.dataset?.siteId || null;
 const authorityId = rootElement?.dataset?.authorityId || null;
+
+const contextSites = parseUuidList(rootElement?.dataset?.contextSites);
+const contextZones = parseUuidList(rootElement?.dataset?.contextZones);
+const contextDroneports = parseUuidList(rootElement?.dataset?.contextDroneports);
+const contextRoutes = parseUuidList(rootElement?.dataset?.contextRoutes);
+
+const mapContextRequest = {
+  sites: contextSites,
+  zones: contextZones,
+  droneports: contextDroneports,
+  routes: contextRoutes,
+};
 
 console.log('DroneNav map props:', {
     mode,
@@ -36,6 +59,7 @@ console.log('DroneNav map props:', {
     overlayUuid,
     siteId,
     authorityId,
+    mapContextRequest,
 });
 
 createRoot(rootElement).render(
@@ -46,6 +70,7 @@ createRoot(rootElement).render(
             overlayUuid={overlayUuid}
             siteId={siteId}
             authorityId={authorityId}
+            mapContextRequest={mapContextRequest}
         />
     </StrictMode>
 );

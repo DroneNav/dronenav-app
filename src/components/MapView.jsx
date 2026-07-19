@@ -9,6 +9,7 @@ import {
     Polygon,
     Polyline,
     Circle,
+    useMap,
     useMapEvents,
 } from 'react-leaflet';
 
@@ -30,6 +31,29 @@ function MapPositionTracker({ onMove }) {
             onMove([center.lat, center.lng]);
         },
     });
+
+    return null;
+}
+
+function MapContextBounds({ bounds }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!bounds?.southWest || !bounds?.northEast) {
+            return;
+        }
+
+        map.fitBounds(
+            [
+                bounds.southWest,
+                bounds.northEast,
+            ],
+            {
+                padding: [30, 30],
+                maxZoom: 18,
+            }
+        );
+    }, [map, bounds]);
 
     return null;
 }
@@ -178,6 +202,7 @@ export default function MapView({
     overlayType = null,
     overlayUuid = null,
     authorityId: initialAuthorityId = null,
+    mapContextRequest = null,
 }) {
     const [points, setPoints] = useState([]);
     const [mapMode, setMapMode] = useState('view');
@@ -212,6 +237,9 @@ export default function MapView({
     const [savedZones, setSavedZones] = useState([]);
     const [savedDroneports, setSavedDroneports] = useState([]);
     const [savedRoutes, setSavedRoutes] = useState([]);
+    const [mapContextData, setMapContextData] = useState(null);
+    const [mapContextLoading, setMapContextLoading] = useState(false);
+    const [mapContextError, setMapContextError] = useState(null);
 
     const pointLabel =
         mapMode === 'create_site'
@@ -234,9 +262,29 @@ export default function MapView({
         readOnly ||
         mode === 'site_readonly' ||
         mode === 'survey_readonly' ||
-        mode === 'site_summary_readonly';
+        mode === 'site_summary_readonly' ||
+        mode === 'map-context';
 
     const isSurveyReadOnly = mode === 'survey_readonly';
+    const isMapContextMode = mode === 'map-context';
+
+    const selectedMapContextSiteIds = new Set(
+        (mapContextData?.selection?.sites || []).map((site) => site.site_id)
+    );
+
+    const selectedMapContextZoneIds = new Set(
+        (mapContextData?.selection?.zones || []).map((zone) => zone.zone_id)
+    );
+
+    const selectedMapContextDroneportIds = new Set(
+        (mapContextData?.selection?.droneports || []).map(
+            (droneport) => droneport.droneport_id
+        )
+    );
+
+    const selectedMapContextRouteIds = new Set(
+        (mapContextData?.selection?.routes || []).map((route) => route.route_id)
+    );
 
     function handleMapClick(latlng) {
         if (isReadOnly) {
@@ -446,6 +494,78 @@ export default function MapView({
         }
     }
 
+    async function loadMapContext() {
+        setMapContextLoading(true);
+        setMapContextError(null);
+
+        try {
+            const response = await fetch(
+                'https://api.dronenav.org/api/flight-context',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(
+                        mapContextRequest || {
+                            sites: [],
+                            zones: [],
+                            droneports: [],
+                            routes: [],
+                        }
+                    ),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    'Load map context error:',
+                    JSON.stringify(result, null, 2)
+                );
+
+                setMapContextError('Failed to load map context.');
+                setMapContextData(null);
+                return;
+            }
+
+            setMapContextData(result);
+
+            const selection = result.selection || {};
+            const context = result.context || {};
+
+            setSavedSites([
+                ...(context.sites || []),
+                ...(selection.sites || []),
+            ]);
+
+            setSavedZones([
+                ...(context.zones || []),
+                ...(selection.zones || []),
+            ]);
+
+            setSavedDroneports([
+                ...(context.droneports || []),
+                ...(selection.droneports || []),
+            ]);
+
+            setSavedRoutes([
+                ...(context.routes || []),
+                ...(selection.routes || []),
+            ]);
+
+            console.log('Loaded map context:', result);
+        } catch (error) {
+            console.error('Load map context failed:', error);
+
+            setMapContextError('Map context request failed.');
+            setMapContextData(null);
+        } finally {
+            setMapContextLoading(false);
+        }
+    }
+
     async function loadReferenceData() {
         try {
             const response = await fetch(
@@ -469,6 +589,10 @@ export default function MapView({
     }
 
     useEffect(() => {
+        if (isMapContextMode) {
+            loadMapContext();
+            return;
+        }
 
         if (
             mode === 'survey_readonly' &&
@@ -487,8 +611,14 @@ export default function MapView({
         if (isReadOnly && siteId) {
             loadOverlayPackage(siteId);
         }
-
-    }, [isReadOnly, siteId, mode, overlayType, overlayUuid]);
+    }, [
+        isMapContextMode,
+        isReadOnly,
+        siteId,
+        mode,
+        overlayType,
+        overlayUuid,
+    ]);
 
     useEffect(() => {
         loadReferenceData();
@@ -2140,6 +2270,10 @@ export default function MapView({
                         url={MAP_TILE_URL}
                     />
 
+                    {isMapContextMode && (
+                        <MapContextBounds bounds={mapContextData?.bounds} />
+                    )}
+
                     <Pane name="sitesPane" style={{ zIndex: 400 }} />
                     <Pane name="zonesPane" style={{ zIndex: 410 }} />
                     <Pane name="routesPane" style={{ zIndex: 420 }} />
@@ -2195,6 +2329,9 @@ export default function MapView({
                             const selectedSurveySite = isSelectedSurveyOverlay('site', site);
                             const deEmphasizedSurveySite = isSurveyReadOnly && !selectedSurveySite;
 
+                            const selectedMapContextSite = isMapContextMode && selectedMapContextSiteIds.has(site.site_id);
+                            const deEmphasizedMapContextSite = isMapContextMode && !selectedMapContextSite;
+
                             return (
                                 <Polygon
                                     pane="sitesPane"
@@ -2205,9 +2342,9 @@ export default function MapView({
                                     ])}
                                     pathOptions={{
                                         color: 'gray',
-                                        weight: selectedSurveySite ? 5 : 3,
-                                        opacity: deEmphasizedSurveySite ? 0.6 : 0.8,
-                                        fillOpacity: deEmphasizedSurveySite ? 0.08 : 0.15,
+                                        weight: selectedSurveySite || selectedMapContextSite ? 5 : 3,
+                                        opacity: deEmphasizedSurveySite || deEmphasizedMapContextSite ? 0.6 : 0.8,
+                                        fillOpacity: deEmphasizedSurveySite || deEmphasizedMapContextSite ? 0.08 : 0.15,
                                         dashArray: site.operational_status === 'active' ? null : '4, 8',
                                     }}
                                     bubblingMouseEvents={false}
@@ -2270,6 +2407,9 @@ export default function MapView({
                             const selectedSurveyZone = isSelectedSurveyOverlay('zone', zone);
                             const deEmphasizedSurveyZone = isSurveyReadOnly && !selectedSurveyZone;
 
+                            const selectedMapContextZone = isMapContextMode && selectedMapContextZoneIds.has(zone.zone_id);
+                            const deEmphasizedMapContextZone = isMapContextMode && !selectedMapContextZone;
+
                             return (
                                 <Polygon
                                     pane="zonesPane"
@@ -2279,14 +2419,10 @@ export default function MapView({
                                         coordinate[0],
                                     ])}
                                     pathOptions={{
-                                        color: deEmphasizedSurveyZone ? 'gray' : 'red',
-                                        weight: selectedSurveyZone ? 5 : 3,
-                                        opacity: deEmphasizedSurveyZone ? 0.45 : 0.8,
-                                        fillOpacity: deEmphasizedSurveyZone
-                                            ? 0.06
-                                            : zone.zone_type === 'inclusion'
-                                                ? 0.0
-                                                : 0.15,
+                                        color: deEmphasizedSurveyZone || deEmphasizedMapContextZone ? 'gray' : 'red',
+                                        weight: selectedSurveyZone || selectedMapContextZone ? 5 : 3,
+                                        opacity: deEmphasizedSurveyZone || deEmphasizedMapContextZone ? 0.45 : 0.8,
+                                        fillOpacity: deEmphasizedSurveyZone || deEmphasizedMapContextZone ? 0.06 : zone.zone_type === 'inclusion' ? 0.0 : 0.15,
                                         dashArray: zone.operational_status === 'active' ? null : '4, 8',
                                     }}
                                     bubblingMouseEvents={false}
@@ -2343,11 +2479,11 @@ export default function MapView({
                                 Array.isArray(droneport.geometry.coordinates)
                         )
                         .map((droneport) => {
-                            const selectedSurveyDroneport =
-                                isSelectedSurveyOverlay('droneport', droneport);
+                            const selectedSurveyDroneport = isSelectedSurveyOverlay('droneport', droneport);
+                            const deEmphasizedSurveyDroneport = isSurveyReadOnly && !selectedSurveyDroneport;
 
-                            const deEmphasizedSurveyDroneport =
-                                isSurveyReadOnly && !selectedSurveyDroneport;
+                            const selectedMapContextDroneport = isMapContextMode && selectedMapContextDroneportIds.has(droneport.droneport_id);
+                            const deEmphasizedMapContextDroneport = isMapContextMode && !selectedMapContextDroneport;
 
                             return (
                                 <Circle
@@ -2359,11 +2495,11 @@ export default function MapView({
                                     ]}
                                     radius={(droneport.droneport_diameter_ft / 2) * 0.3048}
                                     pathOptions={{
-                                        color: deEmphasizedSurveyDroneport ? 'gray' : 'purple',
-                                        fillColor: deEmphasizedSurveyDroneport ? 'gray' : 'purple',
-                                        weight: selectedSurveyDroneport ? 5 : 3,
-                                        opacity: deEmphasizedSurveyDroneport ? 0.45 : 0.8,
-                                        fillOpacity: deEmphasizedSurveyDroneport ? 0.10 : 0.15,
+                                        color: deEmphasizedSurveyDroneport || deEmphasizedMapContextDroneport ? 'gray' : 'purple',
+                                        fillColor: deEmphasizedSurveyDroneport || deEmphasizedMapContextDroneport ? 'gray' : 'purple',
+                                        weight: selectedSurveyDroneport || selectedMapContextDroneport ? 5 : 3,
+                                        opacity: deEmphasizedSurveyDroneport || deEmphasizedMapContextDroneport ? 0.45 : 0.8,
+                                        fillOpacity: deEmphasizedSurveyDroneport || deEmphasizedMapContextDroneport ? 0.10 : 0.15,
                                     }}
                                     bubblingMouseEvents={false}
                                     interactive={
@@ -2432,10 +2568,13 @@ export default function MapView({
                             const selectedSurveyRoute = isSelectedSurveyOverlay('route', route);
                             const deEmphasizedSurveyRoute = isSurveyReadOnly && !selectedSurveyRoute;
 
+                            const selectedMapContextRoute = isMapContextMode && selectedMapContextRouteIds.has(route.route_id);
+                            const deEmphasizedMapContextRoute = isMapContextMode && !selectedMapContextRoute;
+
                             const routePathOptions = {
-                                color: deEmphasizedSurveyRoute ? 'gray' : 'green',
-                                weight: selectedSurveyRoute ? 4 : 2,
-                                opacity: deEmphasizedSurveyRoute ? 0.35 : 0.8,
+                                color: deEmphasizedSurveyRoute || deEmphasizedMapContextRoute ? 'gray' : 'green',
+                                weight: selectedSurveyRoute || selectedMapContextRoute ? 4 : 2,
+                                opacity: deEmphasizedSurveyRoute || deEmphasizedMapContextRoute ? 0.35 : 0.8,
                                 dashArray: route.operational_status === 'active' ? null : '4, 8',
                             };
 
