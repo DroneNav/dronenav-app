@@ -215,7 +215,7 @@ export default function MapView({
     const [selectedSiteId, setSelectedSiteId] = useState('');
     const [droneportName, setDroneportName] = useState('');
     const [droneportType, setDroneportType] = useState('recreation');
-    const [droneportDiameter, setDroneportDiameter] = useState(25);
+    const [droneportDiameter, setDroneportDiameter] = useState(30);
     const [originSelectedSiteId, setOriginSelectedSiteId] = useState('');
     const [destinationSelectedSiteId, setDestinationSelectedSiteId] = useState('');
     const [originSelectedDroneportId, setOriginSelectedDroneportId] = useState('');
@@ -624,7 +624,7 @@ export default function MapView({
         loadReferenceData();
     }, []);
 
-    const DEFAULT_ROUTE_WIDTH_FT = 10;
+    const DEFAULT_ROUTE_WIDTH_FT = 30;
     const DEFAULT_SPEED_LIMIT_MPH = 15;
     const DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = 0;
     const DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = 400;
@@ -2518,7 +2518,7 @@ export default function MapView({
                                                 if (mapMode === 'update') {
                                                     setDroneportName(droneport.droneport_name);
                                                     setDroneportType(droneport.droneport_type);
-                                                    setDroneportDiameter(droneport.droneport_diameter_ft ?? 25);
+                                                    setDroneportDiameter(droneport.droneport_diameter_ft ?? 30);
                                                 }
                                             }
                                         },
