@@ -203,6 +203,7 @@ export default function MapView({
     overlayUuid = null,
     authorityId: initialAuthorityId = null,
     mapContextRequest = null,
+    flightExecutionId = null,
 }) {
     const [points, setPoints] = useState([]);
     const [mapMode, setMapMode] = useState('view');
@@ -240,6 +241,7 @@ export default function MapView({
     const [mapContextData, setMapContextData] = useState(null);
     const [mapContextLoading, setMapContextLoading] = useState(false);
     const [mapContextError, setMapContextError] = useState(null);
+    const [actualFlightPositions, setActualFlightPositions] = useState([]);
 
     const pointLabel =
         mapMode === 'create_site'
@@ -494,6 +496,33 @@ export default function MapView({
         }
     }
 
+    async function loadActualFlightPath() {
+        if (!flightExecutionId) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `https://api.dronenav.org/api/actual-paths/${flightExecutionId}`
+            );
+
+            if (!response.ok) {
+                return;
+            }
+
+            const result = await response.json();
+
+            const positions =
+                result.geometry?.coordinates?.map(
+                    ([longitude, latitude]) => [latitude, longitude]
+                ) || [];
+
+            setActualFlightPositions(positions);
+        } catch {
+            // Actual flight path is optional. Silently ignore failures.
+        }
+    }
+
     async function loadMapContext() {
         setMapContextLoading(true);
         setMapContextError(null);
@@ -554,6 +583,10 @@ export default function MapView({
                 ...(context.routes || []),
                 ...(selection.routes || []),
             ]);
+
+            if (flightExecutionId) {
+                loadActualFlightPath();
+            }
 
             console.log('Loaded map context:', result);
         } catch (error) {
@@ -2731,6 +2764,17 @@ export default function MapView({
                                 </Fragment>
                             );
                         })}
+
+                        {actualFlightPositions.length >= 2 && (
+                            <Polyline
+                                positions={actualFlightPositions}
+                                pathOptions={{
+                                    color: 'orange',
+                                    weight: 2,
+                                    opacity: 0.9,
+                                }}
+                            />
+                        )}
                 </MapContainer>
             </div>
         </div>

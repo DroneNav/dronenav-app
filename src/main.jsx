@@ -40,6 +40,7 @@ const overlayType = rootElement?.dataset?.overlayType || null;
 const overlayUuid = rootElement?.dataset?.overlayUuid || null;
 const siteId = rootElement?.dataset?.siteId || null;
 const authorityId = rootElement?.dataset?.authorityId || null;
+const flightExecutionId = rootElement?.dataset?.flightExecutionId || null;
 
 const contextSites = parseUuidList(rootElement?.dataset?.contextSites);
 const contextZones = parseUuidList(rootElement?.dataset?.contextZones);
