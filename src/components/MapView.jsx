@@ -9,6 +9,7 @@ import {
     Polygon,
     Polyline,
     Circle,
+    CircleMarker,
     useMap,
     useMapEvents,
 } from 'react-leaflet';
@@ -320,7 +321,7 @@ export default function MapView({
 
     async function loadSites() {
         try {
-            const response = await fetch('https://api.dronenav.org/api/sites');
+            const response = await fetch('/api-gateway/sites', { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -340,7 +341,7 @@ export default function MapView({
 
     async function loadZones() {
         try {
-            const response = await fetch('https://api.dronenav.org/api/zones');
+            const response = await fetch('/api-gateway/zones', { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -360,7 +361,7 @@ export default function MapView({
 
     async function loadDroneports() {
         try {
-            const response = await fetch('https://api.dronenav.org/api/droneports');
+            const response = await fetch('/api-gateway/droneports', { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -380,7 +381,7 @@ export default function MapView({
 
     async function loadRoutes() {
         try {
-            const response = await fetch('https://api.dronenav.org/api/routes');
+            const response = await fetch('/api-gateway/routes', { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -406,7 +407,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/sites/${packageSiteId}/package`
+                `/api-gateway/sites/${packageSiteId}/package`, { credentials: 'same-origin' }
             );
 
             const result = await response.json();
@@ -437,8 +438,8 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/governance/overlays/${selectedOverlayUuid}/package`
-            );
+                `/api-gateway/governance/overlays/${selectedOverlayUuid}/package`,
+                { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -463,8 +464,8 @@ export default function MapView({
     async function loadRouteContextPackage(routeId) {
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/routes/${routeId}/context-package`
-            );
+                `/api-gateway/routes/${routeId}/context-package`,
+                { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -503,8 +504,8 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/actual-paths/${flightExecutionId}`
-            );
+                `/api-gateway/actual-paths/${flightExecutionId}`,
+                { credentials: 'same-origin' });
 
             if (!response.ok) {
                 return;
@@ -529,8 +530,9 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                'https://api.dronenav.org/api/flight-context',
+                '/api-gateway/flight-context',
                 {
+                    credentials: 'same-origin',
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -602,8 +604,7 @@ export default function MapView({
     async function loadReferenceData() {
         try {
             const response = await fetch(
-                'https://api.dronenav.org/api/reference-data'
-            );
+                '/api-gateway/reference-data', { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -830,7 +831,8 @@ export default function MapView({
 
         try {
             console.log('Sending payload:', JSON.stringify(sitePayload, null, 2));
-            const response = await fetch('https://api.dronenav.org/api/sites', {
+            const response = await fetch('/api-gateway/sites', {
+                credentials: 'same-origin',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -863,7 +865,8 @@ export default function MapView({
 
         try {
             console.log('Sending payload:', JSON.stringify(zonePayload, null, 2));
-            const response = await fetch('https://api.dronenav.org/api/zones', {
+            const response = await fetch('/api-gateway/zones', {
+                credentials: 'same-origin',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -896,7 +899,8 @@ export default function MapView({
 
         try {
             console.log('Sending payload:', JSON.stringify(droneportPayload, null, 2));
-            const response = await fetch('https://api.dronenav.org/api/droneports', {
+            const response = await fetch('/api-gateway/droneports', {
+                credentials: 'same-origin',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -929,7 +933,8 @@ export default function MapView({
 
         try {
             console.log('Sending payload:', JSON.stringify(routePayload, null, 2));
-            const response = await fetch('https://api.dronenav.org/api/routes', {
+            const response = await fetch('/api-gateway/routes', {
+                credentials: 'same-origin',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -971,10 +976,10 @@ export default function MapView({
         const { type, data } = selectedObject;
 
         const endpoints = {
-            site: `https://api.dronenav.org/api/sites/${data.site_id}`,
-            zone: `https://api.dronenav.org/api/zones/${data.zone_id}`,
-            droneport: `https://api.dronenav.org/api/droneports/${data.droneport_id}`,
-            route: `https://api.dronenav.org/api/routes/${data.route_id}`,
+            site: `/api-gateway/sites/${data.site_id}`,
+            zone: `/api-gateway/zones/${data.zone_id}`,
+            droneport: `/api-gateway/droneports/${data.droneport_id}`,
+            route: `/api-gateway/routes/${data.route_id}`,
         };
 
         try {
@@ -982,6 +987,7 @@ export default function MapView({
             console.log('Delete URL:', endpoints[type]);
 
             const response = await fetch(endpoints[type], {
+                credentials: 'same-origin',
                 method: 'DELETE',
             });
 
@@ -1051,8 +1057,9 @@ export default function MapView({
             console.log('Payload:', JSON.stringify(siteUpdatePayload, null, 2));
 
             const response = await fetch(
-                `https://api.dronenav.org/api/sites/${siteId}`,
+                `/api-gateway/sites/${siteId}`,
                 {
+                    credentials: 'same-origin',
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1096,8 +1103,9 @@ export default function MapView({
             console.log('Payload:', JSON.stringify(zoneUpdatePayload, null, 2));
 
             const response = await fetch(
-                `https://api.dronenav.org/api/zones/${zoneId}`,
+                `/api-gateway/zones/${zoneId}`,
                 {
+                    credentials: 'same-origin',
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1142,8 +1150,9 @@ export default function MapView({
             console.log('Payload:', JSON.stringify(droneportUpdatePayload, null, 2));
 
             const response = await fetch(
-                `https://api.dronenav.org/api/droneports/${droneportId}`,
+                `/api-gateway/droneports/${droneportId}`,
                 {
+                    credentials: 'same-origin',
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1187,8 +1196,9 @@ export default function MapView({
             console.log('Payload:', JSON.stringify(routeUpdatePayload, null, 2));
 
             const response = await fetch(
-                `https://api.dronenav.org/api/routes/${routeId}`,
+                `/api-gateway/routes/${routeId}`,
                 {
+                    credentials: 'same-origin',
                     method: 'PATCH',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1328,8 +1338,9 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/governance/overlays/${selectedObject.type}s/${overlayId}/survey`,
+                `/api-gateway/governance/overlays/${selectedObject.type}s/${overlayId}/survey`,
                 {
+                    credentials: 'same-origin',
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1370,8 +1381,9 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/governance/overlays/${selectedObject.type}s/${overlayId}/expire-survey`,
+                `/api-gateway/governance/overlays/${selectedObject.type}s/${overlayId}/expire-survey`,
                 {
+                    credentials: 'same-origin',
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1413,8 +1425,9 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/governance/overlays/${siteId}/survey-package`,
+                `/api-gateway/governance/overlays/${siteId}/survey-package`,
                 {
+                    credentials: 'same-origin',
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1457,8 +1470,9 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/governance/overlays/${siteId}/expire-survey-package`,
+                `/api-gateway/governance/overlays/${siteId}/expire-survey-package`,
                 {
+                    credentials: 'same-origin',
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1505,8 +1519,9 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/governance/overlays/${overlayType}s/${overlayId}/deactivate`,
+                `/api-gateway/governance/overlays/${overlayType}s/${overlayId}/deactivate`,
                 {
+                    credentials: 'same-origin',
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1546,8 +1561,9 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `https://api.dronenav.org/api/governance/overlays/sites/${siteId}/deactivate-package`,
+                `/api-gateway/governance/overlays/sites/${siteId}/deactivate-package`,
                 {
+                    credentials: 'same-origin',
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -2317,7 +2333,18 @@ export default function MapView({
                     <MapPositionTracker onMove={setCurrentCenter} />
 
                     {points.map((point, index) => (
-                        <Marker pane="editPane" key={index} position={[point.lat, point.lng]}>
+                        <CircleMarker
+                            pane="editPane"
+                            key={index}
+                            center={[point.lat, point.lng]}
+                            radius={4}
+                            pathOptions={{
+                                color: '#3388ff',
+                                fillColor: '#3388ff',
+                                fillOpacity: 1,
+                                weight: 1,
+                            }}
+                        >
                             <Popup>
                                 Boundary Point {index + 1}
                                 <br />
@@ -2325,7 +2352,7 @@ export default function MapView({
                                 <br />
                                 Lng: {point.lng.toFixed(6)}
                             </Popup>
-                        </Marker>
+                        </CircleMarker>
                     ))}
 
                     {(mapMode === 'create_site' || mapMode === 'create_zone') && points.length >= 3 && (
@@ -2765,16 +2792,16 @@ export default function MapView({
                             );
                         })}
 
-                        {actualFlightPositions.length >= 2 && (
-                            <Polyline
-                                positions={actualFlightPositions}
-                                pathOptions={{
-                                    color: 'orange',
-                                    weight: 2,
-                                    opacity: 0.9,
-                                }}
-                            />
-                        )}
+                    {actualFlightPositions.length >= 2 && (
+                        <Polyline
+                            positions={actualFlightPositions}
+                            pathOptions={{
+                                color: 'orange',
+                                weight: 2,
+                                opacity: 0.9,
+                            }}
+                        />
+                    )}
                 </MapContainer>
             </div>
         </div>
