@@ -187,7 +187,7 @@ function RoutePopup({ route }) {
             <br />
             Route Direction: {getRouteDirectionLabel(route.direction)}
             <br />
-            Route Buffer: {route.buffered}
+            Route Buffer: {route.maximum_aircraft_capacity}
             <br />
             Route ID: {route.route_id}
             <br />
@@ -779,7 +779,7 @@ export default function MapView({
                 minimum_aircraft_weight_lbs: minimumAircraftWeight,
                 maximum_aircraft_weight_lbs: maximumAircraftWeight,
                 direction: Number(routeDirection),
-                buffered: routeBuffering,
+                maximum_aircraft_capacity: routeBuffering,
                 segment_attributes: generatedRouteSegmentAttributes,
                 geometry: routeJson,
             }
@@ -805,7 +805,7 @@ export default function MapView({
                 route_type: routeType,
                 minimum_aircraft_weight_lbs: minimumAircraftWeight,
                 maximum_aircraft_weight_lbs: maximumAircraftWeight,
-                buffered: routeBuffering,
+                maximum_aircraft_capacity: routeBuffering,
                 segment_attributes:
                     editableRouteSegmentAttributes.length > 0
                         ? editableRouteSegmentAttributes
@@ -2650,7 +2650,7 @@ export default function MapView({
                                         setRouteType(route.route_type);
                                         setMinimumAircraftWeight(route.minimum_aircraft_weight_lbs ?? 4);
                                         setMaximumAircraftWeight(route.maximum_aircraft_weight_lbs ?? 50);
-                                        setRouteBuffering(route.buffered ?? 0);
+                                        setRouteBuffering(route.maximum_aircraft_capacity ?? 0);
 
                                         const existingSegmentAttributes =
                                             Array.isArray(route.segment_attributes) &&
