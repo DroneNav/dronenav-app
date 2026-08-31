@@ -187,7 +187,7 @@ function RoutePopup({ route }) {
             <br />
             Route Direction: {getRouteDirectionLabel(route.direction)}
             <br />
-            Route Buffer: {route.maximum_aircraft_capacity}
+            Maximum Aircraft Capacity: {route.maximum_aircraft_capacity}
             <br />
             Route ID: {route.route_id}
             <br />
@@ -1912,7 +1912,7 @@ export default function MapView({
                                     <br />
 
                                     <label>
-                                        Route Buffer:{' '}
+                                        Maximum Aircraft Capacity:{' '}
                                         <input
                                             type="number"
                                             placeholder="0"
@@ -2061,7 +2061,7 @@ export default function MapView({
                                     <br />
 
                                     <label>
-                                        Route Buffer:{' '}
+                                        Maximum Aircraft Capacity:{' '}
                                         <input
                                             type="number"
                                             placeholder="0"
