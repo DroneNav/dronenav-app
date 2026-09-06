@@ -242,6 +242,76 @@ function calculateInteriorAngleDegrees(firstPoint, vertexPoint, thirdPoint) {
     return Math.acos(clampedCosine) * 180 / Math.PI;
 }
 
+function findRouteEndpointSnapTarget(latlng, savedRoutes, snapDistanceFt) {
+    let nearestTarget = null;
+    let nearestDistanceFt = snapDistanceFt;
+
+    savedRoutes.forEach((route) => {
+        const coordinates = route.geometry?.coordinates;
+
+        if (!Array.isArray(coordinates) || coordinates.length < 2) {
+            return;
+        }
+
+        const endpointCoordinates = [
+            coordinates[0],
+            coordinates[coordinates.length - 1],
+        ];
+
+        endpointCoordinates.forEach(([longitude, latitude]) => {
+            const distanceMeters = L.latLng(
+                latlng.lat,
+                latlng.lng
+            ).distanceTo(
+                L.latLng(latitude, longitude)
+            );
+
+            const distanceFeet = distanceMeters * 3.28084;
+
+            if (distanceFeet <= nearestDistanceFt) {
+                nearestDistanceFt = distanceFeet;
+                nearestTarget = L.latLng(latitude, longitude);
+            }
+        });
+    });
+
+    return nearestTarget;
+}
+
+function findDroneportSnapTarget(latlng, savedDroneports, snapDistanceFt) {
+    let nearestTarget = null;
+    let nearestDistanceFt = snapDistanceFt;
+
+    savedDroneports.forEach((droneport) => {
+        const coordinates = droneport.geometry?.coordinates;
+
+        if (
+            !Array.isArray(coordinates) ||
+            coordinates.length !== 2
+        ) {
+            return;
+        }
+
+        const [longitude, latitude] = coordinates;
+
+        const distanceMeters = L.latLng(
+            latlng.lat,
+            latlng.lng
+        ).distanceTo(
+            L.latLng(latitude, longitude)
+        );
+
+        const distanceFeet = distanceMeters * 3.28084;
+
+        if (distanceFeet <= nearestDistanceFt) {
+            nearestDistanceFt = distanceFeet;
+            nearestTarget = L.latLng(latitude, longitude);
+        }
+    });
+
+    return nearestTarget;
+}
+
 
 export default function MapView({
     readOnly = false,
@@ -358,8 +428,25 @@ export default function MapView({
 
         if (mapMode === 'create_route') {
             setPoints((currentPoints) => {
+                const snapTarget =
+                    currentPoints.length === 0
+                        ? (
+                            findRouteEndpointSnapTarget(
+                                latlng,
+                                savedRoutes,
+                                ROUTE_ENDPOINT_SNAP_DISTANCE_FT
+                            ) ||
+                            findDroneportSnapTarget(
+                                latlng,
+                                savedDroneports,
+                                ROUTE_ENDPOINT_SNAP_DISTANCE_FT
+                            )
+                        )
+                        : null;
+
+                const candidatePoint = snapTarget || latlng;
                 if (currentPoints.length === 0) {
-                    return [latlng];
+                    return [candidatePoint];
                 }
 
                 if (currentPoints.length === 1) {
@@ -369,7 +456,7 @@ export default function MapView({
                         lastPoint.lat,
                         lastPoint.lng
                     ).distanceTo(
-                        L.latLng(latlng.lat, latlng.lng)
+                        L.latLng(candidatePoint.lat, candidatePoint.lng)
                     );
 
                     const distanceFeet = distanceMeters * 3.28084;
@@ -386,7 +473,7 @@ export default function MapView({
                     const angleDegrees = calculateInteriorAngleDegrees(
                         firstPoint,
                         vertexPoint,
-                        latlng
+                        candidatePoint
                     );
 
                     if (
@@ -397,7 +484,7 @@ export default function MapView({
                     }
                 }
 
-                return [...currentPoints, latlng];
+                return [...currentPoints, candidatePoint];
             });
 
             return;
@@ -759,6 +846,7 @@ export default function MapView({
     const DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = 400;
     const MIN_ROUTE_SEGMENT_LENGTH_FT = 501;
     const MIN_ROUTE_INTERIOR_ANGLE_DEGREES = 120;
+    const ROUTE_ENDPOINT_SNAP_DISTANCE_FT = 25;
 
     const polygonPositions = points.map((point) => [point.lat, point.lng]);
 
@@ -1710,6 +1798,26 @@ export default function MapView({
             console.error('Deactivate package failed:', error);
             alert('Deactivate package failed. Check browser console.');
         }
+    }
+
+    let routeEndpointSnapTarget = null;
+
+    if (
+        mapMode === 'create_route' &&
+        points.length === 0 &&
+        mousePosition
+    ) {
+        routeEndpointSnapTarget =
+            findRouteEndpointSnapTarget(
+                mousePosition,
+                savedRoutes,
+                ROUTE_ENDPOINT_SNAP_DISTANCE_FT
+            ) ||
+            findDroneportSnapTarget(
+                mousePosition,
+                savedDroneports,
+                ROUTE_ENDPOINT_SNAP_DISTANCE_FT
+            );
     }
 
     let nextRouteInteriorAngleDegrees = null;
@@ -2759,6 +2867,20 @@ export default function MapView({
                             );
                         })
                     }
+
+                    {routeEndpointSnapTarget && (
+                        <CircleMarker
+                            center={[
+                                routeEndpointSnapTarget.lat,
+                                routeEndpointSnapTarget.lng,
+                            ]}
+                            radius={8}
+                            pathOptions={{
+                                weight: 3,
+                                fillOpacity: 0.4,
+                            }}
+                        />
+                    )}
 
                     {savedRoutes
                         .filter(
