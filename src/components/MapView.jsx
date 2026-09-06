@@ -1,5 +1,7 @@
 import { useState, useEffect, Fragment } from 'react';
 
+import { API_BASE_URL } from '../config/api';
+
 import {
     MapContainer,
     TileLayer,
@@ -30,6 +32,16 @@ function MapPositionTracker({ onMove }) {
         moveend(e) {
             const center = e.target.getCenter();
             onMove([center.lat, center.lng]);
+        },
+    });
+
+    return null;
+}
+
+function MapMouseTracker({ onMove }) {
+    useMapEvents({
+        mousemove(event) {
+            onMove(event.latlng);
         },
     });
 
@@ -196,6 +208,41 @@ function RoutePopup({ route }) {
     );
 }
 
+function calculateInteriorAngleDegrees(firstPoint, vertexPoint, thirdPoint) {
+    const latitudeRadians = vertexPoint.lat * Math.PI / 180;
+
+    const firstX =
+        (firstPoint.lng - vertexPoint.lng) *
+        Math.cos(latitudeRadians);
+    const firstY =
+        firstPoint.lat - vertexPoint.lat;
+
+    const thirdX =
+        (thirdPoint.lng - vertexPoint.lng) *
+        Math.cos(latitudeRadians);
+    const thirdY =
+        thirdPoint.lat - vertexPoint.lat;
+
+    const dotProduct =
+        firstX * thirdX +
+        firstY * thirdY;
+
+    const firstMagnitude = Math.hypot(firstX, firstY);
+    const thirdMagnitude = Math.hypot(thirdX, thirdY);
+
+    if (firstMagnitude === 0 || thirdMagnitude === 0) {
+        return null;
+    }
+
+    const cosine =
+        dotProduct / (firstMagnitude * thirdMagnitude);
+
+    const clampedCosine = Math.max(-1, Math.min(1, cosine));
+
+    return Math.acos(clampedCosine) * 180 / Math.PI;
+}
+
+
 export default function MapView({
     readOnly = false,
     siteId = null,
@@ -243,6 +290,7 @@ export default function MapView({
     const [mapContextLoading, setMapContextLoading] = useState(false);
     const [mapContextError, setMapContextError] = useState(null);
     const [actualFlightPositions, setActualFlightPositions] = useState([]);
+    const [mousePosition, setMousePosition] = useState(null);
 
     const pointLabel =
         mapMode === 'create_site'
@@ -308,6 +356,53 @@ export default function MapView({
             return;
         }
 
+        if (mapMode === 'create_route') {
+            setPoints((currentPoints) => {
+                if (currentPoints.length === 0) {
+                    return [latlng];
+                }
+
+                if (currentPoints.length === 1) {
+                    const lastPoint = currentPoints[0];
+
+                    const distanceMeters = L.latLng(
+                        lastPoint.lat,
+                        lastPoint.lng
+                    ).distanceTo(
+                        L.latLng(latlng.lat, latlng.lng)
+                    );
+
+                    const distanceFeet = distanceMeters * 3.28084;
+
+                    if (distanceFeet < MIN_ROUTE_SEGMENT_LENGTH_FT) {
+                        return currentPoints;
+                    }
+                }
+
+                if (currentPoints.length >= 2) {
+                    const firstPoint = currentPoints[currentPoints.length - 2];
+                    const vertexPoint = currentPoints[currentPoints.length - 1];
+
+                    const angleDegrees = calculateInteriorAngleDegrees(
+                        firstPoint,
+                        vertexPoint,
+                        latlng
+                    );
+
+                    if (
+                        angleDegrees !== null &&
+                        angleDegrees < MIN_ROUTE_INTERIOR_ANGLE_DEGREES
+                    ) {
+                        return currentPoints;
+                    }
+                }
+
+                return [...currentPoints, latlng];
+            });
+
+            return;
+        }
+
         setPoints((currentPoints) => [...currentPoints, latlng]);
     }
 
@@ -321,7 +416,7 @@ export default function MapView({
 
     async function loadSites() {
         try {
-            const response = await fetch('/api-gateway/sites', { credentials: 'same-origin' });
+            const response = await fetch(`${API_BASE_URL}/sites`, { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -341,7 +436,7 @@ export default function MapView({
 
     async function loadZones() {
         try {
-            const response = await fetch('/api-gateway/zones', { credentials: 'same-origin' });
+            const response = await fetch(`${API_BASE_URL}/zones`, { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -361,7 +456,7 @@ export default function MapView({
 
     async function loadDroneports() {
         try {
-            const response = await fetch('/api-gateway/droneports', { credentials: 'same-origin' });
+            const response = await fetch(`${API_BASE_URL}/droneports`, { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -381,7 +476,7 @@ export default function MapView({
 
     async function loadRoutes() {
         try {
-            const response = await fetch('/api-gateway/routes', { credentials: 'same-origin' });
+            const response = await fetch(`${API_BASE_URL}/routes`, { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -407,7 +502,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/sites/${packageSiteId}/package`, { credentials: 'same-origin' }
+                `${API_BASE_URL}/sites/${packageSiteId}/package`, { credentials: 'same-origin' }
             );
 
             const result = await response.json();
@@ -438,7 +533,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/governance/overlays/${selectedOverlayUuid}/package`,
+                `${API_BASE_URL}/governance/overlays/${selectedOverlayUuid}/package`,
                 { credentials: 'same-origin' });
 
             const result = await response.json();
@@ -464,7 +559,7 @@ export default function MapView({
     async function loadRouteContextPackage(routeId) {
         try {
             const response = await fetch(
-                `/api-gateway/routes/${routeId}/context-package`,
+                `${API_BASE_URL}/routes/${routeId}/context-package`,
                 { credentials: 'same-origin' });
 
             const result = await response.json();
@@ -504,7 +599,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/actual-paths/${flightExecutionId}`,
+                `${API_BASE_URL}/actual-paths/${flightExecutionId}`,
                 { credentials: 'same-origin' });
 
             if (!response.ok) {
@@ -530,7 +625,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                '/api-gateway/flight-context',
+                `${API_BASE_URL}/flight-context`,
                 {
                     credentials: 'same-origin',
                     method: 'POST',
@@ -604,7 +699,7 @@ export default function MapView({
     async function loadReferenceData() {
         try {
             const response = await fetch(
-                '/api-gateway/reference-data', { credentials: 'same-origin' });
+                `${API_BASE_URL}/reference-data`, { credentials: 'same-origin' });
 
             const result = await response.json();
 
@@ -662,6 +757,8 @@ export default function MapView({
     const DEFAULT_SPEED_LIMIT_MPH = 15;
     const DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = 0;
     const DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = 400;
+    const MIN_ROUTE_SEGMENT_LENGTH_FT = 501;
+    const MIN_ROUTE_INTERIOR_ANGLE_DEGREES = 120;
 
     const polygonPositions = points.map((point) => [point.lat, point.lng]);
 
@@ -831,7 +928,7 @@ export default function MapView({
 
         try {
             console.log('Sending payload:', JSON.stringify(sitePayload, null, 2));
-            const response = await fetch('/api-gateway/sites', {
+            const response = await fetch(`${API_BASE_URL}/sites`, {
                 credentials: 'same-origin',
                 method: 'POST',
                 headers: {
@@ -865,7 +962,7 @@ export default function MapView({
 
         try {
             console.log('Sending payload:', JSON.stringify(zonePayload, null, 2));
-            const response = await fetch('/api-gateway/zones', {
+            const response = await fetch(`${API_BASE_URL}/zones`, {
                 credentials: 'same-origin',
                 method: 'POST',
                 headers: {
@@ -899,7 +996,7 @@ export default function MapView({
 
         try {
             console.log('Sending payload:', JSON.stringify(droneportPayload, null, 2));
-            const response = await fetch('/api-gateway/droneports', {
+            const response = await fetch(`${API_BASE_URL}/droneports`, {
                 credentials: 'same-origin',
                 method: 'POST',
                 headers: {
@@ -931,9 +1028,30 @@ export default function MapView({
             return;
         }
 
+        if (points.length >= 4) {
+            const secondLastPoint = points[points.length - 2];
+            const lastPoint = points[points.length - 1];
+
+            const distanceMeters = L.latLng(
+                secondLastPoint.lat,
+                secondLastPoint.lng
+            ).distanceTo(
+                L.latLng(lastPoint.lat, lastPoint.lng)
+            );
+
+            const distanceFeet = distanceMeters * 3.28084;
+
+            if (distanceFeet < MIN_ROUTE_SEGMENT_LENGTH_FT) {
+                alert(
+                    `The final Route segment must be at least ${MIN_ROUTE_SEGMENT_LENGTH_FT} ft.`
+                );
+                return;
+            }
+        }
+
         try {
             console.log('Sending payload:', JSON.stringify(routePayload, null, 2));
-            const response = await fetch('/api-gateway/routes', {
+            const response = await fetch(`${API_BASE_URL}/routes`, {
                 credentials: 'same-origin',
                 method: 'POST',
                 headers: {
@@ -976,10 +1094,10 @@ export default function MapView({
         const { type, data } = selectedObject;
 
         const endpoints = {
-            site: `/api-gateway/sites/${data.site_id}`,
-            zone: `/api-gateway/zones/${data.zone_id}`,
-            droneport: `/api-gateway/droneports/${data.droneport_id}`,
-            route: `/api-gateway/routes/${data.route_id}`,
+            site: `${API_BASE_URL}/sites/${data.site_id}`,
+            zone: `${API_BASE_URL}/zones/${data.zone_id}`,
+            droneport: `${API_BASE_URL}/droneports/${data.droneport_id}`,
+            route: `${API_BASE_URL}/routes/${data.route_id}`,
         };
 
         try {
@@ -1057,7 +1175,7 @@ export default function MapView({
             console.log('Payload:', JSON.stringify(siteUpdatePayload, null, 2));
 
             const response = await fetch(
-                `/api-gateway/sites/${siteId}`,
+                `${API_BASE_URL}/sites/${siteId}`,
                 {
                     credentials: 'same-origin',
                     method: 'PATCH',
@@ -1103,7 +1221,7 @@ export default function MapView({
             console.log('Payload:', JSON.stringify(zoneUpdatePayload, null, 2));
 
             const response = await fetch(
-                `/api-gateway/zones/${zoneId}`,
+                `${API_BASE_URL}/zones/${zoneId}`,
                 {
                     credentials: 'same-origin',
                     method: 'PATCH',
@@ -1150,7 +1268,7 @@ export default function MapView({
             console.log('Payload:', JSON.stringify(droneportUpdatePayload, null, 2));
 
             const response = await fetch(
-                `/api-gateway/droneports/${droneportId}`,
+                `${API_BASE_URL}/droneports/${droneportId}`,
                 {
                     credentials: 'same-origin',
                     method: 'PATCH',
@@ -1196,7 +1314,7 @@ export default function MapView({
             console.log('Payload:', JSON.stringify(routeUpdatePayload, null, 2));
 
             const response = await fetch(
-                `/api-gateway/routes/${routeId}`,
+                `${API_BASE_URL}/routes/${routeId}`,
                 {
                     credentials: 'same-origin',
                     method: 'PATCH',
@@ -1338,7 +1456,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/governance/overlays/${selectedObject.type}s/${overlayId}/survey`,
+                `${API_BASE_URL}/governance/overlays/${selectedObject.type}s/${overlayId}/survey`,
                 {
                     credentials: 'same-origin',
                     method: 'POST',
@@ -1381,7 +1499,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/governance/overlays/${selectedObject.type}s/${overlayId}/expire-survey`,
+                `${API_BASE_URL}/governance/overlays/${selectedObject.type}s/${overlayId}/expire-survey`,
                 {
                     credentials: 'same-origin',
                     method: 'POST',
@@ -1425,7 +1543,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/governance/overlays/${siteId}/survey-package`,
+                `${API_BASE_URL}/governance/overlays/${siteId}/survey-package`,
                 {
                     credentials: 'same-origin',
                     method: 'POST',
@@ -1470,7 +1588,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/governance/overlays/${siteId}/expire-survey-package`,
+                `${API_BASE_URL}/governance/overlays/${siteId}/expire-survey-package`,
                 {
                     credentials: 'same-origin',
                     method: 'POST',
@@ -1519,7 +1637,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/governance/overlays/${overlayType}s/${overlayId}/deactivate`,
+                `${API_BASE_URL}/governance/overlays/${overlayType}s/${overlayId}/deactivate`,
                 {
                     credentials: 'same-origin',
                     method: 'POST',
@@ -1561,7 +1679,7 @@ export default function MapView({
 
         try {
             const response = await fetch(
-                `/api-gateway/governance/overlays/sites/${siteId}/deactivate-package`,
+                `${API_BASE_URL}/governance/overlays/sites/${siteId}/deactivate-package`,
                 {
                     credentials: 'same-origin',
                     method: 'POST',
@@ -1592,6 +1710,23 @@ export default function MapView({
             console.error('Deactivate package failed:', error);
             alert('Deactivate package failed. Check browser console.');
         }
+    }
+
+    let nextRouteInteriorAngleDegrees = null;
+
+    if (
+        mapMode === 'create_route' &&
+        points.length >= 2 &&
+        mousePosition
+    ) {
+        const firstPoint = points[points.length - 2];
+        const vertexPoint = points[points.length - 1];
+
+        nextRouteInteriorAngleDegrees = calculateInteriorAngleDegrees(
+            firstPoint,
+            vertexPoint,
+            mousePosition
+        );
     }
 
     return (
@@ -2293,8 +2428,24 @@ export default function MapView({
                                 </>
                             )}
 
-
                             <pre>{JSON.stringify(selectedObject, null, 2)}</pre>
+                        </div>
+                    )}
+
+                    {mapMode === 'create_route' && points.length >= 2 && (
+                        <div style={{ padding: '10px' }}>
+                            Turn angle:{' '}
+                            {nextRouteInteriorAngleDegrees === null
+                                ? 'Move mouse to preview'
+                                : `${nextRouteInteriorAngleDegrees.toFixed(0)}°`}
+                            {nextRouteInteriorAngleDegrees !== null && (
+                                <>
+                                    {' '}
+                                    {nextRouteInteriorAngleDegrees >= MIN_ROUTE_INTERIOR_ANGLE_DEGREES
+                                        ? '✓'
+                                        : `(minimum ${MIN_ROUTE_INTERIOR_ANGLE_DEGREES}°)`}
+                                </>
+                            )}
                         </div>
                     )}
 
@@ -2331,6 +2482,7 @@ export default function MapView({
 
                     <MapClickHandler onMapClick={handleMapClick} />
                     <MapPositionTracker onMove={setCurrentCenter} />
+                    <MapMouseTracker onMove={setMousePosition} />
 
                     {points.map((point, index) => (
                         <CircleMarker
