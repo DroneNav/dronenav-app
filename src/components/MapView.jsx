@@ -1380,7 +1380,7 @@ export default function MapView({
 
             setDroneportName('');
             setDroneportType('recreation');
-            setDroneportDiameter(25);
+            setDroneportDiameter(30);
             setSelectedObject(null);
             await loadDroneports();
         } catch (error) {
