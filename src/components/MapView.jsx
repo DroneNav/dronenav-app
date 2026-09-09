@@ -189,10 +189,6 @@ function RoutePopup({ route }) {
             <br />
             Destination Site ID: {route.destination_site_id}
             <br />
-            Origin DronePort ID: {route.origin_droneport_id}
-            <br />
-            Destination DronePort ID: {route.destination_droneport_id}
-            <br />
             Minimum Aircraft Weight: {route.minimum_aircraft_weight_lbs}
             <br />
             Maximum Aircraft Weight: {route.maximum_aircraft_weight_lbs}
@@ -335,10 +331,6 @@ export default function MapView({
     const [droneportName, setDroneportName] = useState('');
     const [droneportType, setDroneportType] = useState('recreation');
     const [droneportDiameter, setDroneportDiameter] = useState(30);
-    const [originSelectedSiteId, setOriginSelectedSiteId] = useState('');
-    const [destinationSelectedSiteId, setDestinationSelectedSiteId] = useState('');
-    const [originSelectedDroneportId, setOriginSelectedDroneportId] = useState('');
-    const [destinationSelectedDroneportId, setDestinationSelectedDroneportId] = useState('');
     const [minimumAircraftWeight, setMinimumAircraftWeight] = useState(4.0);
     const [maximumAircraftWeight, setMaximumAircraftWeight] = useState(50.0);
     const [minimumAltitude, setMinimumAltitude] = useState(0);
@@ -372,12 +364,6 @@ export default function MapView({
                     : mapMode === 'create_route'
                         ? 'Route Points'
                         : 'Points';
-    const originDroneports = savedDroneports.filter(
-        (droneport) => droneport.site_id === originSelectedSiteId
-    );
-    const destinationDroneports = savedDroneports.filter(
-        (droneport) => droneport.site_id === destinationSelectedSiteId
-    );
 
     const isReadOnly =
         readOnly ||
@@ -422,7 +408,14 @@ export default function MapView({
         }
 
         if (mapMode === 'create_droneport') {
-            setPoints([latlng]);
+            const snapTarget =
+                findRouteEndpointSnapTarget(
+                    latlng,
+                    savedRoutes,
+                    ROUTE_ENDPOINT_SNAP_DISTANCE_FT
+                );
+
+            setPoints([snapTarget || latlng]);
             return;
         }
 
@@ -460,6 +453,12 @@ export default function MapView({
                     );
 
                     const distanceFeet = distanceMeters * 3.28084;
+
+                    console.log(
+                        'First Route segment distance:',
+                        distanceFeet,
+                        'ft'
+                    );
 
                     if (distanceFeet < MIN_ROUTE_SEGMENT_LENGTH_FT) {
                         return currentPoints;
@@ -926,9 +925,9 @@ export default function MapView({
             : null;
 
     const droneportPayload =
-        droneportJson && droneportName.trim() && selectedSiteId
+        droneportJson && droneportName.trim()
             ? {
-                site_id: selectedSiteId,
+                site_id: selectedSiteId || null,
                 droneport_name: droneportName,
                 droneport_type: droneportType,
                 created_by: 'dronenav',
@@ -951,13 +950,8 @@ export default function MapView({
     const [editableRouteSegmentAttributes, setEditableRouteSegmentAttributes] = useState([]);
 
     const routePayload =
-        routeJson && routeName.trim() && originSelectedSiteId && destinationSelectedSiteId
-            && originSelectedDroneportId && destinationSelectedDroneportId
+        routeJson && routeName.trim()
             ? {
-                origin_site_id: originSelectedSiteId,
-                destination_site_id: destinationSelectedSiteId,
-                origin_droneport_id: originSelectedDroneportId,
-                destination_droneport_id: destinationSelectedDroneportId,
                 route_name: routeName,
                 route_type: routeType,
                 created_by: 'dronenav',
@@ -1112,13 +1106,44 @@ export default function MapView({
 
     async function saveRoute() {
         if (!routePayload) {
-            alert('Select two sites, two droneports, enter a route name, and select points for at least three route segments.');
+            alert('Enter a route name, and select points for at least three route segments before saving.');
             return;
         }
 
+        const finalPoint = points[points.length - 1];
+
+        const destinationSnapTarget =
+            findRouteEndpointSnapTarget(
+                finalPoint,
+                savedRoutes,
+                ROUTE_ENDPOINT_SNAP_DISTANCE_FT
+            ) ||
+            findDroneportSnapTarget(
+                finalPoint,
+                savedDroneports,
+                ROUTE_ENDPOINT_SNAP_DISTANCE_FT
+            );
+
+        const payloadToSave = {
+            ...routePayload,
+            geometry: {
+                ...routePayload.geometry,
+                coordinates: routePayload.geometry.coordinates.map(
+                    (coordinate, index) =>
+                        index === routePayload.geometry.coordinates.length - 1 &&
+                            destinationSnapTarget
+                            ? [
+                                destinationSnapTarget.lng,
+                                destinationSnapTarget.lat,
+                            ]
+                            : coordinate
+                ),
+            },
+        };
+
         if (points.length >= 4) {
             const secondLastPoint = points[points.length - 2];
-            const lastPoint = points[points.length - 1];
+            const lastPoint = destinationSnapTarget || points[points.length - 1];
 
             const distanceMeters = L.latLng(
                 secondLastPoint.lat,
@@ -1138,14 +1163,14 @@ export default function MapView({
         }
 
         try {
-            console.log('Sending payload:', JSON.stringify(routePayload, null, 2));
+            console.log('Sending payload:', JSON.stringify(payloadToSave, null, 2));
             const response = await fetch(`${API_BASE_URL}/routes`, {
                 credentials: 'same-origin',
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(routePayload),
+                body: JSON.stringify(payloadToSave),
             });
 
             const result = await response.json();
@@ -1804,7 +1829,6 @@ export default function MapView({
 
     if (
         mapMode === 'create_route' &&
-        points.length === 0 &&
         mousePosition
     ) {
         routeEndpointSnapTarget =
@@ -1816,6 +1840,16 @@ export default function MapView({
             findDroneportSnapTarget(
                 mousePosition,
                 savedDroneports,
+                ROUTE_ENDPOINT_SNAP_DISTANCE_FT
+            );
+    } else if (
+        mapMode === 'create_droneport' &&
+        mousePosition
+    ) {
+        routeEndpointSnapTarget =
+            findRouteEndpointSnapTarget(
+                mousePosition,
+                savedRoutes,
                 ROUTE_ENDPOINT_SNAP_DISTANCE_FT
             );
     }
@@ -2028,68 +2062,6 @@ export default function MapView({
                             {mapMode === 'create_route' && (
                                 <>
                                     <h3>Create Route</h3>
-
-                                    <select
-                                        value={originSelectedSiteId}
-                                        onChange={(e) => {
-                                            setOriginSelectedSiteId(e.target.value);
-                                            setOriginSelectedDroneportId('');
-                                        }}
-                                    >
-                                        <option value="">Select Origin Site</option>
-                                        {savedSites.map((site) => (
-                                            <option key={site.site_id} value={site.site_id}>
-                                                {site.site_name}
-                                            </option>
-                                        ))}
-                                    </select>
-
-                                    <br />
-
-                                    <select
-                                        value={destinationSelectedSiteId}
-                                        onChange={(e) => {
-                                            setDestinationSelectedSiteId(e.target.value);
-                                            setDestinationSelectedDroneportId('');
-                                        }}
-                                    >
-                                        <option value="">Select Destination Site</option>
-                                        {savedSites.map((site) => (
-                                            <option key={site.site_id} value={site.site_id}>
-                                                {site.site_name}
-                                            </option>
-                                        ))}
-                                    </select>
-
-                                    <br />
-
-                                    <select
-                                        value={originSelectedDroneportId}
-                                        onChange={(e) => setOriginSelectedDroneportId(e.target.value)}
-                                    >
-                                        <option value="">Select Origin DronePort</option>
-                                        {originDroneports.map((droneport) => (
-                                            <option key={droneport.droneport_id} value={droneport.droneport_id}>
-                                                {droneport.droneport_name}
-                                            </option>
-                                        ))}
-                                    </select>
-
-                                    <br />
-
-                                    <select
-                                        value={destinationSelectedDroneportId}
-                                        onChange={(e) => setDestinationSelectedDroneportId(e.target.value)}
-                                    >
-                                        <option value="">Select Destination DronePort</option>
-                                        {destinationDroneports.map((droneport) => (
-                                            <option key={droneport.droneport_id} value={droneport.droneport_id}>
-                                                {droneport.droneport_name}
-                                            </option>
-                                        ))}
-                                    </select>
-
-                                    <br />
 
                                     <label>
                                         Route Name:{' '}
