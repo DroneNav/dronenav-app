@@ -2830,6 +2830,8 @@ export default function MapView({
                                             <br />
                                             Droneport ID: {droneport.droneport_id}
                                             <br />
+                                            Location: [{droneport.geometry.coordinates[0]}, {droneport.geometry.coordinates[1]}]
+                                            <br />
                                             Diameter: {droneport.droneport_diameter_ft} ft
                                             <br />
                                             Created by: {droneport.created_by}
