@@ -31,7 +31,31 @@ function MapPositionTracker({ onMove }) {
     useMapEvents({
         moveend(e) {
             const center = e.target.getCenter();
-            onMove([center.lat, center.lng]);
+
+            onMove((current) => {
+                if (
+                    current[0] === center.lat &&
+                    current[1] === center.lng
+                ) {
+                    return current;
+                }
+
+                return [center.lat, center.lng];
+            });
+        },
+    });
+
+    return null;
+}
+
+function MapZoomDebug() {
+    useMapEvents({
+        zoomstart(e) {
+            console.log('ZOOM START:', e.target.getZoom());
+        },
+
+        zoomend(e) {
+            console.log('ZOOM END:', e.target.getZoom());
         },
     });
 
@@ -41,7 +65,16 @@ function MapPositionTracker({ onMove }) {
 function MapMouseTracker({ onMove }) {
     useMapEvents({
         mousemove(event) {
-            onMove(event.latlng);
+            onMove((current) => {
+                if (
+                    current?.lat === event.latlng.lat &&
+                    current?.lng === event.latlng.lng
+                ) {
+                    return current;
+                }
+
+                return event.latlng;
+            });
         },
     });
 
@@ -331,6 +364,13 @@ export default function MapView({
     const [droneportName, setDroneportName] = useState('');
     const [droneportType, setDroneportType] = useState('recreation');
     const [droneportDiameter, setDroneportDiameter] = useState(30);
+    const [landingSpaceEditorPosition, setLandingSpaceEditorPosition] = useState(null);
+    const [showLandingSpaceEditor, setShowLandingSpaceEditor] = useState(false);
+    const [addingLandingSpace, setAddingLandingSpace] = useState(false);
+    const [changingLandingSpaceLocation, setChangingLandingSpaceLocation] = useState(false);
+    const [landingSpaceHeading, setLandingSpaceHeading] = useState(0);
+    const [landingSpaceCharging, setLandingSpaceCharging] = useState(false);
+    const [landingSpaceStatus, setLandingSpaceStatus] = useState('active');
     const [minimumAircraftWeight, setMinimumAircraftWeight] = useState(4.0);
     const [maximumAircraftWeight, setMaximumAircraftWeight] = useState(50.0);
     const [minimumAltitude, setMinimumAltitude] = useState(0);
@@ -347,6 +387,7 @@ export default function MapView({
     const [savedSites, setSavedSites] = useState([]);
     const [savedZones, setSavedZones] = useState([]);
     const [savedDroneports, setSavedDroneports] = useState([]);
+    const [landingSpaces, setLandingSpaces] = useState([]);
     const [savedRoutes, setSavedRoutes] = useState([]);
     const [mapContextData, setMapContextData] = useState(null);
     const [mapContextLoading, setMapContextLoading] = useState(false);
@@ -395,6 +436,19 @@ export default function MapView({
 
     function handleMapClick(latlng) {
         if (isReadOnly) {
+            return;
+        }
+
+        if (
+            changingLandingSpaceLocation &&
+            selectedObject?.type === 'landing_space'
+        ) {
+            console.log('Proposed landing space location:', {
+                latitude: latlng.lat,
+                longitude: latlng.lng,
+            });
+
+            setChangingLandingSpaceLocation(false);
             return;
         }
 
@@ -557,6 +611,37 @@ export default function MapView({
         } catch (error) {
             console.error('Load droneports failed:', error);
             alert('Load droneports failed. Check browser console.');
+        }
+    }
+
+    async function loadLandingSpaces(droneportId) {
+        if (!droneportId) {
+            setLandingSpaces([]);
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/droneport-landing-spaces?droneport_id=${droneportId}`,
+                { credentials: 'same-origin' }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    'Load landing spaces error:',
+                    JSON.stringify(result, null, 2)
+                );
+                alert('Failed to load landing spaces.');
+                return;
+            }
+
+            setLandingSpaces(result.landing_spaces || []);
+            console.log('Loaded landing spaces:', result.landing_spaces);
+        } catch (error) {
+            console.error('Load landing spaces failed:', error);
+            alert('Load landing spaces failed. Check browser console.');
         }
     }
 
@@ -1414,6 +1499,52 @@ export default function MapView({
         }
     }
 
+    async function updateSelectedLandingSpace() {
+        if (!selectedObject || selectedObject.type !== 'landing_space') {
+            return;
+        }
+
+        const landingSpaceId = selectedObject.data.landing_space_id;
+
+        const payload = {
+            heading_degrees: landingSpaceHeading,
+            charging_capable: landingSpaceCharging,
+            operational_status: landingSpaceStatus,
+        };
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/droneport-landing-spaces/${landingSpaceId}`,
+                {
+                    method: 'PATCH',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    'Update landing space error:',
+                    JSON.stringify(result, null, 2)
+                );
+                alert('Failed to update landing space.');
+                return;
+            }
+
+            await loadLandingSpaces(selectedObject.data.droneport_id);
+
+            console.log('Updated landing space:', result);
+        } catch (error) {
+            console.error('Update landing space failed:', error);
+            alert('Update landing space failed. Check browser console.');
+        }
+    }
+
     async function updateSelectedRoute() {
         if (!selectedObject || selectedObject.type !== 'route') {
             alert('Select a Route to update.');
@@ -1822,6 +1953,253 @@ export default function MapView({
         } catch (error) {
             console.error('Deactivate package failed:', error);
             alert('Deactivate package failed. Check browser console.');
+        }
+    }
+
+    function getLandingSpaceEditorPosition(landingSpace = selectedObject?.data) {
+
+        const droneport = savedDroneports.find(
+            (item) =>
+                item.droneport_id === landingSpace.droneport_id
+        );
+
+        if (
+            !droneport?.geometry?.coordinates ||
+            !landingSpace?.geometry?.coordinates
+        ) {
+            return null;
+        }
+
+        const droneportLongitude = droneport.geometry.coordinates[0];
+        const droneportLatitude = droneport.geometry.coordinates[1];
+
+        const landingLongitude = landingSpace.geometry.coordinates[0];
+        const landingLatitude = landingSpace.geometry.coordinates[1];
+
+        const feetPerDegreeLatitude = 364000;
+
+        const feetPerDegreeLongitude =
+            feetPerDegreeLatitude *
+            Math.cos(droneportLatitude * Math.PI / 180);
+
+        const eastFeet =
+            (landingLongitude - droneportLongitude) *
+            feetPerDegreeLongitude;
+
+        const northFeet =
+            (landingLatitude - droneportLatitude) *
+            feetPerDegreeLatitude;
+
+        const diameterFeet =
+            droneport.droneport_diameter_ft ?? 30;
+
+        const pixelsPerFoot = 300 / diameterFeet;
+
+        return {
+            x: 150 + eastFeet * pixelsPerFoot,
+            y: 150 - northFeet * pixelsPerFoot,
+        };
+    }
+
+    async function saveLandingSpaceEditorPosition() {
+        if (
+            !selectedObject ||
+            selectedObject.type !== 'landing_space' ||
+            !landingSpaceEditorPosition
+        ) {
+            return;
+        }
+
+        const landingSpace = selectedObject.data;
+
+        const droneport = savedDroneports.find(
+            (item) =>
+                item.droneport_id === landingSpace.droneport_id
+        );
+
+        if (!droneport?.geometry?.coordinates) {
+            return;
+        }
+
+        const droneportLongitude = droneport.geometry.coordinates[0];
+        const droneportLatitude = droneport.geometry.coordinates[1];
+
+        const diameterFeet =
+            droneport.droneport_diameter_ft ?? 30;
+
+        const pixelsPerFoot = 300 / diameterFeet;
+
+        const eastFeet =
+            (landingSpaceEditorPosition.x - 150) /
+            pixelsPerFoot;
+
+        const northFeet =
+            (150 - landingSpaceEditorPosition.y) /
+            pixelsPerFoot;
+
+        const feetPerDegreeLatitude = 364000;
+
+        const feetPerDegreeLongitude =
+            feetPerDegreeLatitude *
+            Math.cos(droneportLatitude * Math.PI / 180);
+
+        const latitude =
+            droneportLatitude +
+            northFeet / feetPerDegreeLatitude;
+
+        const longitude =
+            droneportLongitude +
+            eastFeet / feetPerDegreeLongitude;
+
+        const payload = {
+            geometry: {
+                type: 'Point',
+                coordinates: [longitude, latitude],
+            },
+        };
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/droneport-landing-spaces/${landingSpace.landing_space_id}`,
+                {
+                    method: 'PATCH',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    'Update landing space location error:',
+                    JSON.stringify(result, null, 2)
+                );
+                alert('Failed to update landing space location.');
+                return;
+            }
+
+            await loadLandingSpaces(
+                landingSpace.droneport_id
+            );
+
+            setSelectedObject({
+                type: 'landing_space',
+                data: result,
+            });
+
+            setShowLandingSpaceEditor(false);
+
+            console.log(
+                'Updated landing space location:',
+                result
+            );
+        } catch (error) {
+            console.error(
+                'Update landing space location failed:',
+                error
+            );
+            alert(
+                'Update landing space location failed. Check browser console.'
+            );
+        }
+    }
+
+    async function createLandingSpaceFromEditor() {
+        if (
+            !selectedObject ||
+            selectedObject.type !== 'droneport' ||
+            !landingSpaceEditorPosition
+        ) {
+            return;
+        }
+
+        const droneport = selectedObject.data;
+
+        if (!droneport?.geometry?.coordinates) {
+            return;
+        }
+
+        const droneportLongitude = droneport.geometry.coordinates[0];
+        const droneportLatitude = droneport.geometry.coordinates[1];
+
+        const diameterFeet =
+            droneport.droneport_diameter_ft ?? 30;
+
+        const pixelsPerFoot = 300 / diameterFeet;
+
+        const eastFeet =
+            (landingSpaceEditorPosition.x - 150) /
+            pixelsPerFoot;
+
+        const northFeet =
+            (150 - landingSpaceEditorPosition.y) /
+            pixelsPerFoot;
+
+        const feetPerDegreeLatitude = 364000;
+
+        const feetPerDegreeLongitude =
+            feetPerDegreeLatitude *
+            Math.cos(droneportLatitude * Math.PI / 180);
+
+        const latitude =
+            droneportLatitude +
+            northFeet / feetPerDegreeLatitude;
+
+        const longitude =
+            droneportLongitude +
+            eastFeet / feetPerDegreeLongitude;
+
+        const payload = {
+            droneport_id: droneport.droneport_id,
+            geometry: {
+                type: 'Point',
+                coordinates: [longitude, latitude],
+            },
+            created_by: 'dronenav',
+        };
+
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/droneport-landing-spaces`,
+                {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    'Create landing space error:',
+                    JSON.stringify(result, null, 2)
+                );
+                alert('Failed to create landing space.');
+                return;
+            }
+
+            await loadLandingSpaces(droneport.droneport_id);
+
+            setAddingLandingSpace(false);
+            setShowLandingSpaceEditor(false);
+
+            console.log('Created landing space:', result);
+        } catch (error) {
+            console.error(
+                'Create landing space failed:',
+                error
+            );
+            alert(
+                'Create landing space failed. Check browser console.'
+            );
         }
     }
 
@@ -2243,8 +2621,98 @@ export default function MapView({
                                     <button onClick={updateSelectedDroneport} style={{ marginLeft: '10px' }}>
                                         Update DronePort Attributes
                                     </button>
+
+                                    <button
+                                        onClick={() => {
+                                            setAddingLandingSpace(true);
+                                            setLandingSpaceEditorPosition({
+                                                x: 150,
+                                                y: 150,
+                                            });
+                                            setShowLandingSpaceEditor(true);
+                                        }}
+                                        style={{ marginLeft: '10px' }}
+                                    >
+                                        Add Landing Space
+                                    </button>
                                 </>
                             )}
+
+                            {mapMode === 'update' &&
+                                selectedObject &&
+                                selectedObject.type === 'landing_space' && (
+                                    <>
+                                        <h3>Update Landing Space</h3>
+
+                                        <label>
+                                            Heading (degrees):{' '}
+                                        </label>
+
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            max="359"
+                                            step="1"
+                                            placeholder="Heading (degrees)"
+                                            value={landingSpaceHeading}
+                                            onChange={(e) =>
+                                                setLandingSpaceHeading(Number(e.target.value))
+                                            }
+                                        />
+
+                                        <label
+                                            style={{
+                                                marginLeft: '10px',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={landingSpaceCharging}
+                                                onChange={(e) =>
+                                                    setLandingSpaceCharging(e.target.checked)
+                                                }
+                                            />
+                                            Charging Capable
+                                        </label>
+
+                                        <select
+                                            value={landingSpaceStatus}
+                                            onChange={(e) =>
+                                                setLandingSpaceStatus(e.target.value)
+                                            }
+                                            style={{ marginLeft: '10px' }}
+                                        >
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                        </select>
+
+                                        <button
+                                            onClick={updateSelectedLandingSpace}
+                                            style={{ marginLeft: '10px' }}
+                                        >
+                                            Update Landing Space
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                setAddingLandingSpace(false);
+
+                                                setLandingSpaceEditorPosition(
+                                                    getLandingSpaceEditorPosition()
+                                                );
+
+                                                setShowLandingSpaceEditor(true);
+                                            }}
+                                            style={{ marginLeft: '10px' }}
+                                        >
+                                            Change Location
+                                        </button>
+                                    </>
+                                )
+                            }
 
                             {mapMode === 'update' && selectedObject && selectedObject.type === 'route' && (
                                 <>
@@ -2562,6 +3030,7 @@ export default function MapView({
 
                     <MapClickHandler onMapClick={handleMapClick} />
                     <MapPositionTracker onMove={setCurrentCenter} />
+                    <MapZoomDebug />
                     <MapMouseTracker onMove={setMousePosition} />
 
                     {points.map((point, index) => (
@@ -2811,6 +3280,8 @@ export default function MapView({
                                                     setDroneportName(droneport.droneport_name);
                                                     setDroneportType(droneport.droneport_type);
                                                     setDroneportDiameter(droneport.droneport_diameter_ft ?? 30);
+
+                                                    loadLandingSpaces(droneport.droneport_id);
                                                 }
                                             }
                                         },
@@ -2840,6 +3311,62 @@ export default function MapView({
                                 </Circle>
                             );
                         })
+                    }
+
+                    {mapMode === 'update' &&
+                        (selectedObject?.type === 'droneport' ||
+                            selectedObject?.type === 'landing_space') &&
+                        landingSpaces
+                            .filter(
+                                (landingSpace) =>
+                                    landingSpace.geometry &&
+                                    landingSpace.geometry.type === 'Point' &&
+                                    Array.isArray(landingSpace.geometry.coordinates)
+                            )
+                            .map((landingSpace) => (
+                                <Circle
+                                    pane="editPane"
+                                    key={landingSpace.landing_space_id}
+                                    center={[
+                                        landingSpace.geometry.coordinates[1],
+                                        landingSpace.geometry.coordinates[0],
+                                    ]}
+                                    radius={0.75}
+                                    pathOptions={{
+                                        weight: 2,
+                                        fillOpacity: 1,
+                                    }}
+                                    eventHandlers={{
+                                        click: () => {
+                                            setSelectedObject({
+                                                type: 'landing_space',
+                                                data: landingSpace,
+                                            });
+
+                                            setLandingSpaceHeading(
+                                                Number(landingSpace.heading_degrees ?? 0)
+                                            );
+                                            setLandingSpaceCharging(
+                                                Boolean(landingSpace.charging_capable)
+                                            );
+                                            setLandingSpaceStatus(
+                                                landingSpace.operational_status ?? 'active'
+                                            );
+                                        },
+                                    }}                                >
+                                    <Popup>
+                                        Landing Space
+                                        <br />
+                                        ID: {landingSpace.landing_space_id}
+                                        <br />
+                                        Status: {landingSpace.operational_status}
+                                        <br />
+                                        Heading: {landingSpace.heading_degrees}°
+                                        <br />
+                                        Charging: {landingSpace.charging_capable ? 'Yes' : 'No'}
+                                    </Popup>
+                                </Circle>
+                            ))
                     }
 
                     {routeEndpointSnapTarget && (
@@ -3051,6 +3578,181 @@ export default function MapView({
                         />
                     )}
                 </MapContainer>
+
+                {showLandingSpaceEditor &&
+                    (addingLandingSpace ||
+                        selectedObject?.type === 'landing_space') && (
+                        <div
+                            style={{
+                                position: 'fixed',
+                                inset: 0,
+                                zIndex: 2000,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'rgba(0, 0, 0, 0.25)',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    background: 'white',
+                                    padding: '20px',
+                                    borderRadius: '6px',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                                }}
+                            >
+                                <div
+                                    onClick={(event) => {
+                                        const rect = event.currentTarget.getBoundingClientRect();
+
+                                        const x = event.clientX - rect.left;
+                                        const y = event.clientY - rect.top;
+
+                                        const dx = x - 150;
+                                        const dy = y - 150;
+
+                                        const distanceFromCenter = Math.sqrt(
+                                            dx * dx + dy * dy
+                                        );
+
+                                        if (distanceFromCenter > 150) {
+                                            return;
+                                        }
+
+                                        setLandingSpaceEditorPosition({ x, y });
+                                    }}
+                                    style={{
+                                        position: 'relative',
+                                        width: '300px',
+                                        height: '300px',
+                                        border: '4px solid #444',
+                                        borderRadius: '50%',
+                                        cursor: 'crosshair',
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            left: '50%',
+                                            top: '50%',
+                                            width: '20px',
+                                            height: '20px',
+                                            transform: 'translate(-50%, -50%)',
+                                            pointerEvents: 'none',
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                left: '9px',
+                                                top: 0,
+                                                width: '2px',
+                                                height: '20px',
+                                                background: 'black',
+                                            }}
+                                        />
+
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                left: 0,
+                                                top: '9px',
+                                                width: '20px',
+                                                height: '2px',
+                                                background: 'black',
+                                            }}
+                                        />
+                                    </div>
+
+                                    {landingSpaces
+                                        .filter(
+                                            (landingSpace) =>
+                                                addingLandingSpace ||
+                                                landingSpace.landing_space_id !==
+                                                selectedObject?.data?.landing_space_id
+                                        )
+                                        .map((landingSpace) => {
+                                            const position =
+                                                getLandingSpaceEditorPosition(landingSpace);
+
+                                            if (!position) {
+                                                return null;
+                                            }
+
+                                            return (
+                                                <div
+                                                    key={landingSpace.landing_space_id}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: `${position.x}px`,
+                                                        top: `${position.y}px`,
+                                                        width: '10px',
+                                                        height: '10px',
+                                                        transform: 'translate(-50%, -50%)',
+                                                        borderRadius: '50%',
+                                                        background: '#999',
+                                                        border: '2px solid #333',
+                                                    }}
+                                                />
+                                            );
+                                        })}
+
+                                    {(() => {
+                                        const position = landingSpaceEditorPosition;
+
+                                        if (!position) {
+                                            return null;
+                                        }
+
+                                        return (
+                                            <div
+                                                style={{
+                                                    position: 'absolute',
+                                                    left: `${position.x}px`,
+                                                    top: `${position.y}px`,
+                                                    width: '12px',
+                                                    height: '12px',
+                                                    transform: 'translate(-50%, -50%)',
+                                                    borderRadius: '50%',
+                                                    background: addingLandingSpace ? 'orange' : 'red',
+                                                    border: '2px solid black',
+                                                }}
+                                            />
+                                        );
+                                    })()}
+
+                                </div>
+
+                                <div
+                                    style={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        gap: '12px',
+                                        marginTop: '12px',
+                                    }}
+                                >
+                                    {addingLandingSpace ? (
+                                        <button
+                                            onClick={createLandingSpaceFromEditor}
+                                        >
+                                            Add Landing Space
+                                        </button>) : (
+                                        <button
+                                            onClick={saveLandingSpaceEditorPosition}
+                                        >
+                                            Save Location
+                                        </button>
+                                    )}
+
+                                    <button
+                                        onClick={() => setShowLandingSpaceEditor(false)}
+                                    >
+                                        Close
+                                    </button>
+                                </div>                            </div>
+                        </div>
+                    )
+                }
             </div>
         </div>
     );
