@@ -395,17 +395,24 @@ export default function MapView({
     const [mapContextError, setMapContextError] = useState(null);
     const [actualFlightPositions, setActualFlightPositions] = useState([]);
     const [mousePosition, setMousePosition] = useState(null);
+    const [obstacleGeometryType, setObstacleGeometryType] = useState('Point');
+    const [obstacleName, setObstacleName] = useState('');
+    const [obstacleType, setObstacleType] = useState('');
+    const [obstacleMaximumHeightAglFt, setObstacleMaximumHeightAglFt] = useState(0);
+    const [obstacleDescription, setObstacleDescription] = useState('');
 
     const pointLabel =
         mapMode === 'create_site'
             ? 'Site Boundary Points'
             : mapMode === 'create_zone'
                 ? 'Zone Boundary Points'
-                : mapMode === 'create_droneport'
-                    ? 'DronePort Location'
-                    : mapMode === 'create_route'
-                        ? 'Route Points'
-                        : 'Points';
+                : mapMode === 'create_obstacle'
+                    ? 'Obstacle Points'
+                    : mapMode === 'create_droneport'
+                        ? 'DronePort Location'
+                        : mapMode === 'create_route'
+                            ? 'Route Points'
+                            : 'Points';
 
     const isReadOnly =
         readOnly ||
@@ -456,9 +463,18 @@ export default function MapView({
         if (
             mapMode !== 'create_site' &&
             mapMode !== 'create_zone' &&
+            mapMode !== 'create_obstacle' &&
             mapMode !== 'create_droneport' &&
             mapMode !== 'create_route'
         ) {
+            return;
+        }
+
+        if (
+            mapMode === 'create_obstacle' &&
+            obstacleGeometryType === 'Point'
+        ) {
+            setPoints([latlng]);
             return;
         }
 
@@ -1035,6 +1051,59 @@ export default function MapView({
             }
             : null;
 
+    let obstacleJson = null;
+
+    if (
+        obstacleGeometryType === 'Point' &&
+        points.length === 1
+    ) {
+        obstacleJson = {
+            type: 'Point',
+            coordinates: [points[0].lng, points[0].lat],
+        };
+    }
+
+    if (
+        obstacleGeometryType === 'LineString' &&
+        points.length >= 2
+    ) {
+        obstacleJson = {
+            type: 'LineString',
+            coordinates: points.map((point) => [
+                point.lng,
+                point.lat,
+            ]),
+        };
+    }
+
+    if (
+        obstacleGeometryType === 'Polygon' &&
+        points.length >= 3
+    ) {
+        obstacleJson = {
+            type: 'Polygon',
+            coordinates: [[
+                ...points.map((point) => [
+                    point.lng,
+                    point.lat,
+                ]),
+                [points[0].lng, points[0].lat],
+            ]],
+        };
+    }
+
+    const obstaclePayload =
+        obstacleJson && obstacleName.trim() && obstacleType
+            ? {
+                obstacle_name: obstacleName,
+                obstacle_type: obstacleType,
+                maximum_height_agl_ft: obstacleMaximumHeightAglFt,
+                description: obstacleDescription,
+                created_by: 'dronenav',
+                geometry: obstacleJson,
+            }
+            : null;
+
     const droneportPayload =
         droneportJson && droneportName.trim()
             ? {
@@ -1178,6 +1247,47 @@ export default function MapView({
         } catch (error) {
             console.error('Save failed:', error);
             alert('Zone save failed. Check browser console.');
+        }
+    }
+
+    async function saveObstacle() {
+        if (!obstaclePayload) {
+            alert('Enter an obstacle name and type, then define its geometry.');
+            return;
+        }
+
+        try {
+            console.log(
+                'Sending payload:',
+                JSON.stringify(obstaclePayload, null, 2)
+            );
+
+            const response = await fetch(`${API_BASE_URL}/obstacles`, {
+                credentials: 'same-origin',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(obstaclePayload),
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    'API error:',
+                    JSON.stringify(result, null, 2)
+                );
+                alert('Obstacle save failed. Check browser console.');
+                return;
+            }
+
+            console.log('Obstacle saved:', result);
+            alert('Obstacle saved successfully.');
+            clearPoints();
+        } catch (error) {
+            console.error('Save failed:', error);
+            alert('Obstacle save failed. Check browser console.');
         }
     }
 
@@ -2309,6 +2419,7 @@ export default function MapView({
                                 <option value="view">View</option>
                                 <option value="create_site">Create Site</option>
                                 <option value="create_zone">Create Zone</option>
+                                <option value="create_obstacle">Create Obstacle</option>
                                 <option value="create_droneport">Create DronePort</option>
                                 <option value="create_route">Create Route</option>
                                 <option value="update">Update</option>
@@ -2419,6 +2530,79 @@ export default function MapView({
 
                                     <button onClick={saveZone} style={{ marginLeft: '10px' }}>
                                         Save Zone
+                                    </button>
+                                </>
+                            )}
+
+                            {mapMode === 'create_obstacle' && (
+                                <>
+                                    <h3>Create Obstacle</h3>
+
+                                    <label>
+                                        Obstacle Name:{' '}
+                                        <input
+                                            type="text"
+                                            value={obstacleName}
+                                            onChange={(e) => setObstacleName(e.target.value)}
+                                        />
+                                    </label>
+
+                                    <label>
+                                        Obstacle Type:{' '}
+                                        <select
+                                            value={obstacleType}
+                                            onChange={(e) => setObstacleType(e.target.value)}
+                                        >
+                                            <option value="">Select obstacle type</option>
+                                            {Object.entries(referenceData?.obstacle_type || {}).map(
+                                                ([value, label]) => (
+                                                    <option key={value} value={value}>
+                                                        {label}
+                                                    </option>
+                                                )
+                                            )}
+                                        </select>
+                                    </label>
+
+                                    <label>
+                                        Maximum Height AGL (ft):{' '}
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={obstacleMaximumHeightAglFt}
+                                            onChange={(e) =>
+                                                setObstacleMaximumHeightAglFt(Number(e.target.value))
+                                            }
+                                        />
+                                    </label>
+                                    <br />
+                                    <label>
+                                        Description:{' '}
+                                        <textarea
+                                            value={obstacleDescription}
+                                            onChange={(e) => setObstacleDescription(e.target.value)}
+                                        />
+                                    </label>
+                                    <br />
+                                    <label>
+                                        Geometry Type:{' '}
+                                        <select
+                                            value={obstacleGeometryType}
+                                            onChange={(e) => {
+                                                setObstacleGeometryType(e.target.value);
+                                                setPoints([]);
+                                            }}
+                                        >
+                                            <option value="Point">Point</option>
+                                            <option value="LineString">LineString</option>
+                                            <option value="Polygon">Polygon</option>
+                                        </select>
+                                    </label>
+                                    <button
+                                        onClick={saveObstacle}
+                                        disabled={!obstaclePayload}
+                                    >
+                                        Save Obstacle
                                     </button>
                                 </>
                             )}
@@ -3095,6 +3279,31 @@ export default function MapView({
                         <Polyline pane="editPane" positions={polylinePositions} />
                     )}
 
+                    {mapMode === 'create_obstacle' && obstacleGeometryType === 'Point' &&
+                        points.length === 1 && (
+                            <CircleMarker
+                                pane="editPane"
+                                center={points[0]}
+                                radius={5}
+                            />
+                        )}
+
+                    {mapMode === 'create_obstacle' && obstacleGeometryType === 'LineString' &&
+                        points.length >= 2 && (
+                            <Polyline
+                                pane="editPane"
+                                positions={points}
+                            />
+                        )}
+
+                    {mapMode === 'create_obstacle' && obstacleGeometryType === 'Polygon' &&
+                        points.length >= 3 && (
+                            <Polygon
+                                pane="editPane"
+                                positions={points}
+                            />
+                        )}
+
                     {mapMode === 'create_droneport' && points.length === 1 && (
                         <Circle
                             pane="editPane"
@@ -3298,6 +3507,12 @@ export default function MapView({
                                     <br />
                                     Source: {obstacle.source}
                                     <br />
+                                    {obstacle.site_id && (
+                                        <>
+                                            Site ID: {obstacle.site_id}
+                                            <br />
+                                        </>
+                                    )}
                                     Height: {obstacle.maximum_height_agl_ft} ft AGL
                                     <br />
                                     Status: {obstacle.operational_status}
@@ -3307,6 +3522,8 @@ export default function MapView({
                                     Description: {obstacle.description}
                                     <br />
                                     Coordinates: {obstacle.geometry.coordinates.join(', ')}
+                                    <br />
+                                    Created by: {obstacle.created_by}
                                     <br />
                                     Created: {obstacle.created_at?.split('.')[0]}
                                     <br />
@@ -3362,6 +3579,12 @@ export default function MapView({
                                         <br />
                                         Source: {obstacle.source}
                                         <br />
+                                        {obstacle.site_id && (
+                                            <>
+                                                Site ID: {obstacle.site_id}
+                                                <br />
+                                            </>
+                                        )}
                                         Height: {obstacle.maximum_height_agl_ft} ft AGL
                                         <br />
                                         Status: {obstacle.operational_status}
@@ -3421,6 +3644,12 @@ export default function MapView({
                                         <br />
                                         Source: {obstacle.source}
                                         <br />
+                                        {obstacle.site_id && (
+                                            <>
+                                                Site ID: {obstacle.site_id}
+                                                <br />
+                                            </>
+                                        )}
                                         Pole: {index + 1}
                                         <br />
                                         Height: {obstacle.maximum_height_agl_ft} ft AGL
@@ -3480,6 +3709,12 @@ export default function MapView({
                                     <br />
                                     Source: {obstacle.source}
                                     <br />
+                                    {obstacle.site_id && (
+                                        <>
+                                            Site ID: {obstacle.site_id}
+                                            <br />
+                                        </>
+                                    )}
                                     Height: {obstacle.maximum_height_agl_ft} ft AGL
                                     <br />
                                     Status: {obstacle.operational_status}
