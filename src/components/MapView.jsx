@@ -1104,6 +1104,16 @@ export default function MapView({
             }
             : null;
 
+    const obstacleUpdatePayload =
+        selectedObject && selectedObject.type === 'obstacle' &&
+            obstacleName.trim()
+            ? {
+                obstacle_name: obstacleName,
+                maximum_height_agl_ft: obstacleMaximumHeightAglFt,
+                description: obstacleDescription,
+            }
+            : null;
+
     const droneportPayload =
         droneportJson && droneportName.trim()
             ? {
@@ -1285,6 +1295,11 @@ export default function MapView({
             console.log('Obstacle saved:', result);
             alert('Obstacle saved successfully.');
             clearPoints();
+            setObstacleName('');
+            setObstacleType('');
+            setObstacleMaximumHeightAglFt(0);
+            setObstacleDescription('');
+            setObstacleGeometryType('Point');
         } catch (error) {
             console.error('Save failed:', error);
             alert('Obstacle save failed. Check browser console.');
@@ -1539,6 +1554,62 @@ export default function MapView({
         } catch (error) {
             console.error('Site update failed:', error);
             alert('Site update failed. Check browser console.');
+        }
+    }
+
+    async function updateSelectedObstacle() {
+        if (!selectedObject || selectedObject.type !== 'obstacle') {
+            alert('Select an obstacle to update.');
+            return;
+        }
+
+        if (!obstacleUpdatePayload) {
+            alert('Enter an obstacle name.');
+            return;
+        }
+
+        try {
+            const obstacleId = selectedObject.data.obstacle_id;
+
+            console.log('Updating obstacle:', obstacleId);
+            console.log(
+                'Payload:',
+                JSON.stringify(obstacleUpdatePayload, null, 2)
+            );
+
+            const response = await fetch(
+                `${API_BASE_URL}/obstacles/${obstacleId}`,
+                {
+                    credentials: 'same-origin',
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(obstacleUpdatePayload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    'Update obstacle error:',
+                    JSON.stringify(result, null, 2)
+                );
+                alert('Obstacle update failed. Check browser console.');
+                return;
+            }
+
+            console.log('Obstacle updated:', result);
+            alert('Obstacle updated successfully.');
+
+            setObstacleName('');
+            setObstacleMaximumHeightAglFt(0);
+            setObstacleDescription('');
+            setSelectedObject(null);
+        } catch (error) {
+            console.error('Obstacle update failed:', error);
+            alert('Obstacle update failed. Check browser console.');
         }
     }
 
@@ -2767,93 +2838,132 @@ export default function MapView({
                                 </>
                             )}
 
-                            {mapMode === 'update' && selectedObject && selectedObject.type === 'zone' && (
-                                <>
-                                    <h3>Update Zone Attributes</h3>
+                            {mapMode === 'update' && selectedObject &&
+                                selectedObject.type === 'obstacle' && (
+                                    <>
+                                        <h3>Update Obstacle Attributes</h3>
 
-                                    <input
-                                        type="text"
-                                        placeholder="New zone name"
-                                        value={zoneName}
-                                        onChange={(e) => setZoneName(e.target.value)}
-                                    />
+                                        <input
+                                            type="text"
+                                            placeholder="Obstacle Name"
+                                            value={obstacleName}
+                                            onChange={(e) => setObstacleName(e.target.value)}
+                                        />
 
-                                    <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
-                                        {Object.entries(referenceData?.zone_type || {}).map(([value, label]) => (
-                                            <option key={value} value={value}>
-                                                {label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="Maximum Height AGL (ft)"
+                                            value={obstacleMaximumHeightAglFt}
+                                            onChange={(e) =>
+                                                setObstacleMaximumHeightAglFt(Number(e.target.value))
+                                            }
+                                        />
 
-                                    <input
-                                        type="number"
-                                        placeholder="Minimum altitude: (ft)"
-                                        value={minimumAltitude}
-                                        onChange={(e) => setMinimumAltitude(Number(e.target.value))}
-                                    />
+                                        <textarea
+                                            placeholder="Description"
+                                            value={obstacleDescription}
+                                            onChange={(e) => setObstacleDescription(e.target.value)}
+                                        />
 
-                                    <input
-                                        type="number"
-                                        placeholder="Maximum altitude: (ft)"
-                                        value={maximumAltitude}
-                                        onChange={(e) => setMaximumAltitude(Number(e.target.value))}
-                                    />
+                                        <button
+                                            onClick={updateSelectedObstacle}
+                                            disabled={!obstacleUpdatePayload}
+                                            style={{ marginLeft: '10px' }}
+                                        >
+                                            Update Obstacle Attributes
+                                        </button>
+                                    </>
+                                )}
 
-                                    <button onClick={updateSelectedZone} style={{ marginLeft: '10px' }}>
-                                        Update Zone Attributes
-                                    </button>
-                                </>
-                            )}
+                            {mapMode === 'update' && selectedObject &&
+                                selectedObject.type === 'zone' && (
+                                    <>
+                                        <h3>Update Zone Attributes</h3>
 
-                            {mapMode === 'update' && selectedObject && selectedObject.type === 'droneport' && (
-                                <>
-                                    <h3>Update DronePort Attributes</h3>
+                                        <input
+                                            type="text"
+                                            placeholder="New zone name"
+                                            value={zoneName}
+                                            onChange={(e) => setZoneName(e.target.value)}
+                                        />
 
-                                    <input
-                                        type="text"
-                                        placeholder="New droneport name"
-                                        value={droneportName}
-                                        onChange={(e) => setDroneportName(e.target.value)}
-                                    />
+                                        <select value={zoneType} onChange={(e) => setZoneType(e.target.value)}>
+                                            {Object.entries(referenceData?.zone_type || {}).map(([value, label]) => (
+                                                <option key={value} value={value}>
+                                                    {label}
+                                                </option>
+                                            ))}
+                                        </select>
 
-                                    <select value={droneportType} onChange={(e) => setDroneportType(e.target.value)}>
-                                        {Object.entries(referenceData?.droneport_type || {}).map(([value, label]) => (
-                                            <option key={value} value={value}>
-                                                {label}
-                                            </option>
-                                        ))}
-                                    </select>
+                                        <input
+                                            type="number"
+                                            placeholder="Minimum altitude: (ft)"
+                                            value={minimumAltitude}
+                                            onChange={(e) => setMinimumAltitude(Number(e.target.value))}
+                                        />
 
-                                    <input
-                                        type="number"
-                                        placeholder="Droneport diameter (ft):"
-                                        value={droneportDiameter}
-                                        onChange={(e) => setDroneportDiameter(Number(e.target.value))}
-                                    />
+                                        <input
+                                            type="number"
+                                            placeholder="Maximum altitude: (ft)"
+                                            value={maximumAltitude}
+                                            onChange={(e) => setMaximumAltitude(Number(e.target.value))}
+                                        />
 
-                                    <button onClick={updateSelectedDroneport} style={{ marginLeft: '10px' }}>
-                                        Update DronePort Attributes
-                                    </button>
+                                        <button onClick={updateSelectedZone} style={{ marginLeft: '10px' }}>
+                                            Update Zone Attributes
+                                        </button>
+                                    </>
+                                )}
 
-                                    <button
-                                        onClick={() => {
-                                            setAddingLandingSpace(true);
-                                            setLandingSpaceEditorPosition({
-                                                x: 150,
-                                                y: 150,
-                                            });
-                                            setShowLandingSpaceEditor(true);
-                                        }}
-                                        style={{ marginLeft: '10px' }}
-                                    >
-                                        Add Landing Space
-                                    </button>
-                                </>
-                            )}
+                            {mapMode === 'update' && selectedObject &&
+                                selectedObject.type === 'droneport' && (
+                                    <>
+                                        <h3>Update DronePort Attributes</h3>
 
-                            {mapMode === 'update' &&
-                                selectedObject &&
+                                        <input
+                                            type="text"
+                                            placeholder="New droneport name"
+                                            value={droneportName}
+                                            onChange={(e) => setDroneportName(e.target.value)}
+                                        />
+
+                                        <select value={droneportType} onChange={(e) => setDroneportType(e.target.value)}>
+                                            {Object.entries(referenceData?.droneport_type || {}).map(([value, label]) => (
+                                                <option key={value} value={value}>
+                                                    {label}
+                                                </option>
+                                            ))}
+                                        </select>
+
+                                        <input
+                                            type="number"
+                                            placeholder="Droneport diameter (ft):"
+                                            value={droneportDiameter}
+                                            onChange={(e) => setDroneportDiameter(Number(e.target.value))}
+                                        />
+
+                                        <button onClick={updateSelectedDroneport} style={{ marginLeft: '10px' }}>
+                                            Update DronePort Attributes
+                                        </button>
+
+                                        <button
+                                            onClick={() => {
+                                                setAddingLandingSpace(true);
+                                                setLandingSpaceEditorPosition({
+                                                    x: 150,
+                                                    y: 150,
+                                                });
+                                                setShowLandingSpaceEditor(true);
+                                            }}
+                                            style={{ marginLeft: '10px' }}
+                                        >
+                                            Add Landing Space
+                                        </button>
+                                    </>
+                                )}
+
+                            {mapMode === 'update' && selectedObject &&
                                 selectedObject.type === 'landing_space' && (
                                     <>
                                         <h3>Update Landing Space</h3>
@@ -2928,165 +3038,166 @@ export default function MapView({
                                 )
                             }
 
-                            {mapMode === 'update' && selectedObject && selectedObject.type === 'route' && (
-                                <>
-                                    <h3>Update Route Attributes</h3>
+                            {mapMode === 'update' && selectedObject &&
+                                selectedObject.type === 'route' && (
+                                    <>
+                                        <h3>Update Route Attributes</h3>
 
-                                    <label>
-                                        Route Name:{' '}
-                                        <input
-                                            type="text"
-                                            placeholder="Route Name"
-                                            value={routeName}
-                                            onChange={(e) => setRouteName(e.target.value)}
-                                        />
-                                    </label>
+                                        <label>
+                                            Route Name:{' '}
+                                            <input
+                                                type="text"
+                                                placeholder="Route Name"
+                                                value={routeName}
+                                                onChange={(e) => setRouteName(e.target.value)}
+                                            />
+                                        </label>
 
-                                    <br />
+                                        <br />
 
-                                    <label>
-                                        Route Type:{' '}
-                                        <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
-                                            {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
-                                                <option key={value} value={value}>
-                                                    {label}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </label>
+                                        <label>
+                                            Route Type:{' '}
+                                            <select value={routeType} onChange={(e) => setRouteType(e.target.value)}>
+                                                {Object.entries(referenceData?.route_type || {}).map(([value, label]) => (
+                                                    <option key={value} value={value}>
+                                                        {label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
 
-                                    <br />
+                                        <br />
 
-                                    <label>
-                                        Maximum Aircraft Capacity:{' '}
-                                        <input
-                                            type="number"
-                                            placeholder="0"
-                                            value={routeBuffering}
-                                            onChange={(e) => setRouteBuffering(Number(e.target.value))}
-                                        />
-                                    </label>
+                                        <label>
+                                            Maximum Aircraft Capacity:{' '}
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={routeBuffering}
+                                                onChange={(e) => setRouteBuffering(Number(e.target.value))}
+                                            />
+                                        </label>
 
-                                    <br />
+                                        <br />
 
-                                    <label>
-                                        Minimum Aircraft Weight lbs:{' '}
-                                        <input
-                                            type="number"
-                                            placeholder="4"
-                                            value={minimumAircraftWeight}
-                                            onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
-                                        />
-                                    </label>
+                                        <label>
+                                            Minimum Aircraft Weight lbs:{' '}
+                                            <input
+                                                type="number"
+                                                placeholder="4"
+                                                value={minimumAircraftWeight}
+                                                onChange={(e) => setMinimumAircraftWeight(Number(e.target.value))}
+                                            />
+                                        </label>
 
-                                    <br />
+                                        <br />
 
-                                    <label>
-                                        Maximum Aircraft Weight lbs:{' '}
-                                        <input
-                                            type="number"
-                                            placeholder="50"
-                                            value={maximumAircraftWeight}
-                                            onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
-                                        />
-                                    </label>
+                                        <label>
+                                            Maximum Aircraft Weight lbs:{' '}
+                                            <input
+                                                type="number"
+                                                placeholder="50"
+                                                value={maximumAircraftWeight}
+                                                onChange={(e) => setMaximumAircraftWeight(Number(e.target.value))}
+                                            />
+                                        </label>
 
-                                    <br />
+                                        <br />
 
-                                    {editableRouteSegmentAttributes.length > 0 && (
-                                        <div style={{ marginTop: '15px' }}>
-                                            <h4>Route Segment Attributes</h4>
+                                        {editableRouteSegmentAttributes.length > 0 && (
+                                            <div style={{ marginTop: '15px' }}>
+                                                <h4>Route Segment Attributes</h4>
 
-                                            {editableRouteSegmentAttributes.map((segment, index) => (
-                                                <div
-                                                    key={index}
-                                                    style={{
-                                                        border: '1px solid #ccc',
-                                                        padding: '8px',
-                                                        marginBottom: '8px',
-                                                    }}
-                                                >
-                                                    <strong>
-                                                        {getRouteSegmentLabel(index, editableRouteSegmentAttributes.length)}
-                                                    </strong>
+                                                {editableRouteSegmentAttributes.map((segment, index) => (
+                                                    <div
+                                                        key={index}
+                                                        style={{
+                                                            border: '1px solid #ccc',
+                                                            padding: '8px',
+                                                            marginBottom: '8px',
+                                                        }}
+                                                    >
+                                                        <strong>
+                                                            {getRouteSegmentLabel(index, editableRouteSegmentAttributes.length)}
+                                                        </strong>
 
-                                                    <br />
+                                                        <br />
 
-                                                    <label>
-                                                        Width ft:{' '}
-                                                        <input
-                                                            type="number"
-                                                            value={segment.route_width_ft}
-                                                            onChange={(e) =>
-                                                                updateEditableRouteSegmentAttribute(
-                                                                    index,
-                                                                    'route_width_ft',
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                        />
-                                                    </label>
+                                                        <label>
+                                                            Width ft:{' '}
+                                                            <input
+                                                                type="number"
+                                                                value={segment.route_width_ft}
+                                                                onChange={(e) =>
+                                                                    updateEditableRouteSegmentAttribute(
+                                                                        index,
+                                                                        'route_width_ft',
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                            />
+                                                        </label>
 
-                                                    <br />
+                                                        <br />
 
-                                                    <label>
-                                                        Min AGL ft:{' '}
-                                                        <input
-                                                            type="number"
-                                                            value={segment.minimum_altitude_ft}
-                                                            onChange={(e) =>
-                                                                updateEditableRouteSegmentAttribute(
-                                                                    index,
-                                                                    'minimum_altitude_ft',
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                        />
-                                                    </label>
+                                                        <label>
+                                                            Min AGL ft:{' '}
+                                                            <input
+                                                                type="number"
+                                                                value={segment.minimum_altitude_ft}
+                                                                onChange={(e) =>
+                                                                    updateEditableRouteSegmentAttribute(
+                                                                        index,
+                                                                        'minimum_altitude_ft',
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                            />
+                                                        </label>
 
-                                                    <br />
+                                                        <br />
 
-                                                    <label>
-                                                        Max AGL ft:{' '}
-                                                        <input
-                                                            type="number"
-                                                            value={segment.maximum_altitude_ft}
-                                                            onChange={(e) =>
-                                                                updateEditableRouteSegmentAttribute(
-                                                                    index,
-                                                                    'maximum_altitude_ft',
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                        />
-                                                    </label>
+                                                        <label>
+                                                            Max AGL ft:{' '}
+                                                            <input
+                                                                type="number"
+                                                                value={segment.maximum_altitude_ft}
+                                                                onChange={(e) =>
+                                                                    updateEditableRouteSegmentAttribute(
+                                                                        index,
+                                                                        'maximum_altitude_ft',
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                            />
+                                                        </label>
 
-                                                    <br />
+                                                        <br />
 
-                                                    <label>
-                                                        Speed mph:{' '}
-                                                        <input
-                                                            type="number"
-                                                            value={segment.speed_limit_mph}
-                                                            onChange={(e) =>
-                                                                updateEditableRouteSegmentAttribute(
-                                                                    index,
-                                                                    'speed_limit_mph',
-                                                                    e.target.value
-                                                                )
-                                                            }
-                                                        />
-                                                    </label>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                                        <label>
+                                                            Speed mph:{' '}
+                                                            <input
+                                                                type="number"
+                                                                value={segment.speed_limit_mph}
+                                                                onChange={(e) =>
+                                                                    updateEditableRouteSegmentAttribute(
+                                                                        index,
+                                                                        'speed_limit_mph',
+                                                                        e.target.value
+                                                                    )
+                                                                }
+                                                            />
+                                                        </label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
 
-                                    <button onClick={updateSelectedRoute} style={{ marginLeft: '10px' }}>
-                                        Update Route Attributes
-                                    </button>
-                                </>
-                            )}
+                                        <button onClick={updateSelectedRoute} style={{ marginLeft: '10px' }}>
+                                            Update Route Attributes
+                                        </button>
+                                    </>
+                                )}
 
                         </div>
                     )}
@@ -3499,6 +3610,24 @@ export default function MapView({
                                             ? null
                                             : '4, 8',
                                 }}
+                                eventHandlers={{
+                                    click: () => {
+                                        if (
+                                            mapMode === 'update' &&
+                                            obstacle.source === 'dronenav'
+                                        ) {
+                                            setSelectedObject({
+                                                type: 'obstacle',
+                                                data: obstacle,
+                                            });
+                                            setObstacleName(obstacle.obstacle_name);
+                                            setObstacleMaximumHeightAglFt(
+                                                obstacle.maximum_height_agl_ft ?? 0
+                                            );
+                                            setObstacleDescription(obstacle.description || '');
+                                        }
+                                    },
+                                }}
                             >
                                 <Popup>
                                     <strong>{obstacle.obstacle_name}</strong>
@@ -3570,6 +3699,25 @@ export default function MapView({
                                         color: 'transparent',
                                         weight: 20,
                                         opacity: 0,
+                                    }}
+                                    eventHandlers={{
+                                        click: () => {
+                                            if (
+                                                mapMode === 'update' &&
+                                                obstacle.source === 'dronenav'
+                                            ) {
+                                                setSelectedObject({
+                                                    type: 'obstacle',
+                                                    data: obstacle,
+                                                });
+
+                                                setObstacleName(obstacle.obstacle_name);
+                                                setObstacleMaximumHeightAglFt(
+                                                    obstacle.maximum_height_agl_ft ?? 0
+                                                );
+                                                setObstacleDescription(obstacle.description || '');
+                                            }
+                                        },
                                     }}
                                 >
                                     <Popup>
@@ -3700,6 +3848,25 @@ export default function MapView({
                                         obstacle.operational_status === 'active'
                                             ? null
                                             : '4, 8',
+                                }}
+                                eventHandlers={{
+                                    click: () => {
+                                        if (
+                                            mapMode === 'update' &&
+                                            obstacle.source === 'dronenav'
+                                        ) {
+                                            setSelectedObject({
+                                                type: 'obstacle',
+                                                data: obstacle,
+                                            });
+
+                                            setObstacleName(obstacle.obstacle_name);
+                                            setObstacleMaximumHeightAglFt(
+                                                obstacle.maximum_height_agl_ft ?? 0
+                                            );
+                                            setObstacleDescription(obstacle.description || '');
+                                        }
+                                    },
                                 }}
                             >
                                 <Popup>
