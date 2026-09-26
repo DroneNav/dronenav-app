@@ -3296,11 +3296,19 @@ export default function MapView({
                                     <br />
                                     Type: {obstacle.obstacle_type}
                                     <br />
+                                    Source: {obstacle.source}
+                                    <br />
                                     Height: {obstacle.maximum_height_agl_ft} ft AGL
                                     <br />
                                     Status: {obstacle.operational_status}
                                     <br />
                                     Survey: {obstacle.survey_status}
+                                    <br />
+                                    Description: {obstacle.description}
+                                    <br />
+                                    Coordinates: {obstacle.geometry.coordinates.join(', ')}
+                                    <br />
+                                    Created: {obstacle.created_at?.split('.')[0]}
                                     <br />
                                     Obstacle ID: {obstacle.obstacle_id}
                                 </Popup>
@@ -3317,37 +3325,61 @@ export default function MapView({
                                 obstacle.geometry.coordinates.length >= 2
                         )
                         .map((obstacle) => (
-                            <Polyline
-                                pane="obstaclesPane"
-                                key={`${obstacle.obstacle_id}-${mapMode}`}
-                                positions={obstacle.geometry.coordinates.map((coordinate) => [
-                                    coordinate[1],
-                                    coordinate[0],
-                                ])}
-                                pathOptions={{
-                                    color: 'goldenrod',
-                                    weight: 3,
-                                    opacity: 0.9,
-                                    dashArray:
-                                        obstacle.operational_status === 'active'
-                                            ? null
-                                            : '4, 8',
-                                }}
-                            >
-                                <Popup>
-                                    <strong>{obstacle.obstacle_name}</strong>
-                                    <br />
-                                    Type: {obstacle.obstacle_type}
-                                    <br />
-                                    Height: {obstacle.maximum_height_agl_ft} ft AGL
-                                    <br />
-                                    Status: {obstacle.operational_status}
-                                    <br />
-                                    Survey: {obstacle.survey_status}
-                                    <br />
-                                    Obstacle ID: {obstacle.obstacle_id}
-                                </Popup>
-                            </Polyline>
+                            <Fragment key={`${obstacle.obstacle_id}-${mapMode}`}>
+                                <Polyline
+                                    pane="obstaclesPane"
+                                    positions={obstacle.geometry.coordinates.map((coordinate) => [
+                                        coordinate[1],
+                                        coordinate[0],
+                                    ])}
+                                    pathOptions={{
+                                        color: 'goldenrod',
+                                        weight: 3,
+                                        opacity: 0.9,
+                                        dashArray:
+                                            obstacle.operational_status === 'active'
+                                                ? null
+                                                : '4, 8',
+                                    }}
+                                />
+
+                                <Polyline
+                                    pane="obstaclesPane"
+                                    positions={obstacle.geometry.coordinates.map((coordinate) => [
+                                        coordinate[1],
+                                        coordinate[0],
+                                    ])}
+                                    pathOptions={{
+                                        color: 'transparent',
+                                        weight: 20,
+                                        opacity: 0,
+                                    }}
+                                >
+                                    <Popup>
+                                        <strong>{obstacle.obstacle_name}</strong>
+                                        <br />
+                                        Type: {obstacle.obstacle_type}
+                                        <br />
+                                        Source: {obstacle.source}
+                                        <br />
+                                        Height: {obstacle.maximum_height_agl_ft} ft AGL
+                                        <br />
+                                        Status: {obstacle.operational_status}
+                                        <br />
+                                        Survey: {obstacle.survey_status}
+                                        <br />
+                                        Description: {obstacle.description}
+                                        <br />
+                                        Coordinates: {obstacle.geometry.coordinates[0].join(', ')}
+                                        <br />
+                                        Created by: {obstacle.created_by}
+                                        <br />
+                                        Created: {obstacle.created_at?.split('.')[0]}
+                                        <br />
+                                        Obstacle ID: {obstacle.obstacle_id}
+                                    </Popup>
+                                </Polyline>
+                            </Fragment>
                         ))
                     }
 
@@ -3381,7 +3413,33 @@ export default function MapView({
                                                 ? 0.7
                                                 : 0.25,
                                     }}
-                                />
+                                >
+                                    <Popup>
+                                        <strong>{obstacle.obstacle_name}</strong>
+                                        <br />
+                                        Type: {obstacle.obstacle_type}
+                                        <br />
+                                        Source: {obstacle.source}
+                                        <br />
+                                        Pole: {index + 1}
+                                        <br />
+                                        Height: {obstacle.maximum_height_agl_ft} ft AGL
+                                        <br />
+                                        Status: {obstacle.operational_status}
+                                        <br />
+                                        Survey: {obstacle.survey_status}
+                                        <br />
+                                        Description: {obstacle.description}
+                                        <br />
+                                        Coordinates: {coordinate.join(', ')}
+                                        <br />
+                                        Created by: {obstacle.created_by}
+                                        <br />
+                                        Created: {obstacle.created_at?.split('.')[0]}
+                                        <br />
+                                        Obstacle ID: {obstacle.obstacle_id}
+                                    </Popup>
+                                </CircleMarker>
                             ))
                         )
                     }
@@ -3420,11 +3478,21 @@ export default function MapView({
                                     <br />
                                     Type: {obstacle.obstacle_type}
                                     <br />
+                                    Source: {obstacle.source}
+                                    <br />
                                     Height: {obstacle.maximum_height_agl_ft} ft AGL
                                     <br />
                                     Status: {obstacle.operational_status}
                                     <br />
                                     Survey: {obstacle.survey_status}
+                                    <br />
+                                    Description: {obstacle.description}
+                                    <br />
+                                    Coordinates: {obstacle.geometry.coordinates[0][0].join(', ')}
+                                    <br />
+                                    Created by: {obstacle.created_by}
+                                    <br />
+                                    Created: {obstacle.created_at?.split('.')[0]}
                                     <br />
                                     Obstacle ID: {obstacle.obstacle_id}
                                 </Popup>
