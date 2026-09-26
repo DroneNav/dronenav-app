@@ -1447,6 +1447,7 @@ export default function MapView({
             zone: `${API_BASE_URL}/zones/${data.zone_id}`,
             droneport: `${API_BASE_URL}/droneports/${data.droneport_id}`,
             route: `${API_BASE_URL}/routes/${data.route_id}`,
+            obstacle: `${API_BASE_URL}/obstacles/${data.obstacle_id}`,
         };
 
         try {
@@ -1494,6 +1495,11 @@ export default function MapView({
                     current.filter((route) => route.route_id !== data.route_id)
                 );
             }
+            else if (type === 'obstacle') {
+                setSavedObstacles((current) =>
+                    current.filter((obstacle) => obstacle.obstacle_id !== data.obstacle_id)
+                );
+            }
 
             if (type === 'site') {
                 await loadSites();
@@ -1503,6 +1509,8 @@ export default function MapView({
                 await loadDroneports();
             } else if (type === 'route') {
                 await loadRoutes();
+            } else if (type === 'obstacle') {
+                await loadObstacles();
             }
         }
         catch (error) {
@@ -3592,7 +3600,12 @@ export default function MapView({
                         )
                         .map((obstacle) => (
                             <CircleMarker
-                                pane="obstaclesPane"
+                                pane={
+                                    (mapMode === 'update' || mapMode === 'delete') &&
+                                        obstacle.source === 'dronenav'
+                                        ? 'editPane'
+                                        : 'obstaclesPane'
+                                }
                                 key={`${obstacle.obstacle_id}-${mapMode}`}
                                 center={[
                                     obstacle.geometry.coordinates[1],
@@ -3611,9 +3624,10 @@ export default function MapView({
                                             : '4, 8',
                                 }}
                                 eventHandlers={{
-                                    click: () => {
+                                    click: (event) => {
+                                        L.DomEvent.stopPropagation(event.originalEvent);
                                         if (
-                                            mapMode === 'update' &&
+                                            (mapMode === 'update' || mapMode === 'delete') &&
                                             obstacle.source === 'dronenav'
                                         ) {
                                             setSelectedObject({
@@ -3703,7 +3717,7 @@ export default function MapView({
                                     eventHandlers={{
                                         click: () => {
                                             if (
-                                                mapMode === 'update' &&
+                                                (mapMode === 'update' || mapMode === 'delete') &&
                                                 obstacle.source === 'dronenav'
                                             ) {
                                                 setSelectedObject({
@@ -3852,7 +3866,7 @@ export default function MapView({
                                 eventHandlers={{
                                     click: () => {
                                         if (
-                                            mapMode === 'update' &&
+                                            (mapMode === 'update' || mapMode === 'delete') &&
                                             obstacle.source === 'dronenav'
                                         ) {
                                             setSelectedObject({
