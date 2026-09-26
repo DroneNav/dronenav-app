@@ -389,6 +389,7 @@ export default function MapView({
     const [savedDroneports, setSavedDroneports] = useState([]);
     const [landingSpaces, setLandingSpaces] = useState([]);
     const [savedRoutes, setSavedRoutes] = useState([]);
+    const [savedObstacles, setSavedObstacles] = useState([]);
     const [mapContextData, setMapContextData] = useState(null);
     const [mapContextLoading, setMapContextLoading] = useState(false);
     const [mapContextError, setMapContextError] = useState(null);
@@ -591,6 +592,31 @@ export default function MapView({
         } catch (error) {
             console.error('Load zones failed:', error);
             alert('Load zones failed. Check browser console.');
+        }
+    }
+
+    async function loadObstacles() {
+        try {
+            const response = await fetch(`${API_BASE_URL}/obstacles`, {
+                credentials: 'same-origin',
+            });
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                console.error(
+                    'Load obstacles error:',
+                    JSON.stringify(result, null, 2)
+                );
+                alert('Failed to load obstacles.');
+                return;
+            }
+
+            setSavedObstacles(result.obstacles || []);
+            console.log('Loaded obstacles:', result.obstacles);
+        } catch (error) {
+            console.error('Load obstacles failed:', error);
+            alert('Load obstacles failed. Check browser console.');
         }
     }
 
@@ -2313,6 +2339,10 @@ export default function MapView({
                                 Load Zones
                             </button>
 
+                            <button onClick={loadObstacles} style={{ marginLeft: '10px' }}>
+                                Load Obstacles
+                            </button>
+
                             <button onClick={loadDroneports} style={{ marginLeft: '10px' }}>
                                 Load DronePorts
                             </button>
@@ -3024,6 +3054,7 @@ export default function MapView({
 
                     <Pane name="sitesPane" style={{ zIndex: 400 }} />
                     <Pane name="zonesPane" style={{ zIndex: 410 }} />
+                    <Pane name="obstaclesPane" style={{ zIndex: 415 }} />
                     <Pane name="routesPane" style={{ zIndex: 420 }} />
                     <Pane name="droneportsPane" style={{ zIndex: 430 }} />
                     <Pane name="editPane" style={{ zIndex: 500 }} />
@@ -3230,6 +3261,175 @@ export default function MapView({
                                 </Polygon>
                             );
                         })
+                    }
+
+                    {savedObstacles
+                        .filter(
+                            (obstacle) =>
+                                obstacle.geometry &&
+                                obstacle.geometry.type === 'Point' &&
+                                Array.isArray(obstacle.geometry.coordinates)
+                        )
+                        .map((obstacle) => (
+                            <CircleMarker
+                                pane="obstaclesPane"
+                                key={`${obstacle.obstacle_id}-${mapMode}`}
+                                center={[
+                                    obstacle.geometry.coordinates[1],
+                                    obstacle.geometry.coordinates[0],
+                                ]}
+                                radius={6}
+                                pathOptions={{
+                                    color: 'goldenrod',
+                                    fillColor: 'yellow',
+                                    weight: 2,
+                                    opacity: 0.9,
+                                    fillOpacity: 0.7,
+                                    dashArray:
+                                        obstacle.operational_status === 'active'
+                                            ? null
+                                            : '4, 8',
+                                }}
+                            >
+                                <Popup>
+                                    <strong>{obstacle.obstacle_name}</strong>
+                                    <br />
+                                    Type: {obstacle.obstacle_type}
+                                    <br />
+                                    Height: {obstacle.maximum_height_agl_ft} ft AGL
+                                    <br />
+                                    Status: {obstacle.operational_status}
+                                    <br />
+                                    Survey: {obstacle.survey_status}
+                                    <br />
+                                    Obstacle ID: {obstacle.obstacle_id}
+                                </Popup>
+                            </CircleMarker>
+                        ))
+                    }
+
+                    {savedObstacles
+                        .filter(
+                            (obstacle) =>
+                                obstacle.geometry &&
+                                obstacle.geometry.type === 'LineString' &&
+                                Array.isArray(obstacle.geometry.coordinates) &&
+                                obstacle.geometry.coordinates.length >= 2
+                        )
+                        .map((obstacle) => (
+                            <Polyline
+                                pane="obstaclesPane"
+                                key={`${obstacle.obstacle_id}-${mapMode}`}
+                                positions={obstacle.geometry.coordinates.map((coordinate) => [
+                                    coordinate[1],
+                                    coordinate[0],
+                                ])}
+                                pathOptions={{
+                                    color: 'goldenrod',
+                                    weight: 3,
+                                    opacity: 0.9,
+                                    dashArray:
+                                        obstacle.operational_status === 'active'
+                                            ? null
+                                            : '4, 8',
+                                }}
+                            >
+                                <Popup>
+                                    <strong>{obstacle.obstacle_name}</strong>
+                                    <br />
+                                    Type: {obstacle.obstacle_type}
+                                    <br />
+                                    Height: {obstacle.maximum_height_agl_ft} ft AGL
+                                    <br />
+                                    Status: {obstacle.operational_status}
+                                    <br />
+                                    Survey: {obstacle.survey_status}
+                                    <br />
+                                    Obstacle ID: {obstacle.obstacle_id}
+                                </Popup>
+                            </Polyline>
+                        ))
+                    }
+
+                    {savedObstacles
+                        .filter(
+                            (obstacle) =>
+                                obstacle.geometry &&
+                                obstacle.geometry.type === 'LineString' &&
+                                Array.isArray(obstacle.geometry.coordinates)
+                        )
+                        .flatMap((obstacle) =>
+                            obstacle.geometry.coordinates.map((coordinate, index) => (
+                                <CircleMarker
+                                    pane="obstaclesPane"
+                                    key={`${obstacle.obstacle_id}-point-${index}`}
+                                    center={[
+                                        coordinate[1],
+                                        coordinate[0],
+                                    ]}
+                                    radius={5}
+                                    pathOptions={{
+                                        color: 'goldenrod',
+                                        fillColor: 'yellow',
+                                        weight: 2,
+                                        opacity:
+                                            obstacle.operational_status === 'active'
+                                                ? 0.9
+                                                : 0.5,
+                                        fillOpacity:
+                                            obstacle.operational_status === 'active'
+                                                ? 0.7
+                                                : 0.25,
+                                    }}
+                                />
+                            ))
+                        )
+                    }
+
+                    {savedObstacles
+                        .filter(
+                            (obstacle) =>
+                                obstacle.geometry &&
+                                obstacle.geometry.type === 'Polygon' &&
+                                Array.isArray(obstacle.geometry.coordinates) &&
+                                Array.isArray(obstacle.geometry.coordinates[0]) &&
+                                obstacle.geometry.coordinates[0].length >= 4
+                        )
+                        .map((obstacle) => (
+                            <Polygon
+                                pane="obstaclesPane"
+                                key={`${obstacle.obstacle_id}-${mapMode}`}
+                                positions={obstacle.geometry.coordinates[0].map((coordinate) => [
+                                    coordinate[1],
+                                    coordinate[0],
+                                ])}
+                                pathOptions={{
+                                    color: 'goldenrod',
+                                    fillColor: 'yellow',
+                                    weight: 2,
+                                    opacity: 0.9,
+                                    fillOpacity: 0.25,
+                                    dashArray:
+                                        obstacle.operational_status === 'active'
+                                            ? null
+                                            : '4, 8',
+                                }}
+                            >
+                                <Popup>
+                                    <strong>{obstacle.obstacle_name}</strong>
+                                    <br />
+                                    Type: {obstacle.obstacle_type}
+                                    <br />
+                                    Height: {obstacle.maximum_height_agl_ft} ft AGL
+                                    <br />
+                                    Status: {obstacle.operational_status}
+                                    <br />
+                                    Survey: {obstacle.survey_status}
+                                    <br />
+                                    Obstacle ID: {obstacle.obstacle_id}
+                                </Popup>
+                            </Polygon>
+                        ))
                     }
 
                     {savedDroneports
