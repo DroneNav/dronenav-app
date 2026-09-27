@@ -736,6 +736,7 @@ export default function MapView({
             setSavedZones(result.zones || []);
             setSavedDroneports(result.droneports || []);
             setSavedRoutes(result.routes || []);
+            setSavedObstacles(result.obstacles || []);
 
             console.log('Loaded overlay package:', result);
         } catch (error) {
@@ -767,6 +768,7 @@ export default function MapView({
             setSavedZones(result.zones || []);
             setSavedDroneports(result.droneports || []);
             setSavedRoutes(result.routes || []);
+            setSavedObstacles(result.obstacles || []);
 
             console.log('Loaded survey overlay package:', result);
         } catch (error) {
@@ -803,6 +805,7 @@ export default function MapView({
             setSavedZones(packages.flatMap((pkg) => pkg.zones || []));
             setSavedDroneports(packages.flatMap((pkg) => pkg.droneports || []));
             setSavedRoutes(Array.from(routeMap.values()));
+            setSavedObstacles(packages.flatMap((pkg) => pkg.obstacles || []));
 
             console.log('Loaded route context package:', result);
         } catch (error) {
@@ -3233,6 +3236,13 @@ export default function MapView({
                         <div style={{ padding: '10px' }}>
                             <h3>Zone Payload Preview</h3>
                             <pre>{JSON.stringify(zonePayload, null, 2)}</pre>
+                        </div>
+                    )}
+                    
+                    {!isReadOnly && mapMode === 'create_obstacle' && obstaclePayload && (
+                        <div style={{ padding: '10px' }}>
+                            <h3>Obstacle Payload Preview</h3>
+                            <pre>{JSON.stringify(obstaclePayload, null, 2)}</pre>
                         </div>
                     )}
 
