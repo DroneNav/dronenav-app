@@ -442,6 +442,12 @@ export default function MapView({
         (mapContextData?.selection?.routes || []).map((route) => route.route_id)
     );
 
+    const selectedMapContextObstacleIds = new Set(
+        (mapContextData?.selection?.obstacles || []).map(
+            (obstacle) => obstacle.obstacle_id
+        )
+    );
+
     function handleMapClick(latlng) {
         if (isReadOnly) {
             return;
@@ -851,6 +857,7 @@ export default function MapView({
                             zones: [],
                             droneports: [],
                             routes: [],
+                            obstacles: [],
                         }
                     ),
                 }
@@ -892,6 +899,11 @@ export default function MapView({
             setSavedRoutes([
                 ...(context.routes || []),
                 ...(selection.routes || []),
+            ]);
+
+            setSavedObstacles([
+                ...(context.obstacles || []),
+                ...(selection.obstacles || []),
             ]);
 
             if (flightExecutionId) {
@@ -3598,83 +3610,91 @@ export default function MapView({
                                 obstacle.geometry.type === 'Point' &&
                                 Array.isArray(obstacle.geometry.coordinates)
                         )
-                        .map((obstacle) => (
-                            <CircleMarker
-                                pane={
-                                    (mapMode === 'update' || mapMode === 'delete') &&
-                                        obstacle.source === 'dronenav'
-                                        ? 'editPane'
-                                        : 'obstaclesPane'
-                                }
-                                key={`${obstacle.obstacle_id}-${mapMode}`}
-                                center={[
-                                    obstacle.geometry.coordinates[1],
-                                    obstacle.geometry.coordinates[0],
-                                ]}
-                                radius={6}
-                                pathOptions={{
-                                    color: 'goldenrod',
-                                    fillColor: 'yellow',
-                                    weight: 2,
-                                    opacity: 0.9,
-                                    fillOpacity: 0.7,
-                                    dashArray:
-                                        obstacle.operational_status === 'active'
-                                            ? null
-                                            : '4, 8',
-                                }}
-                                eventHandlers={{
-                                    click: (event) => {
-                                        L.DomEvent.stopPropagation(event.originalEvent);
-                                        if (
-                                            (mapMode === 'update' || mapMode === 'delete') &&
+                        .map((obstacle) => {
+                            const selectedMapContextObstacle =
+                                isMapContextMode &&
+                                selectedMapContextObstacleIds.has(obstacle.obstacle_id);
+
+                            const deEmphasizedMapContextObstacle =
+                                isMapContextMode && !selectedMapContextObstacle;
+
+                            return (
+                                <CircleMarker
+                                    pane={
+                                        (mapMode === 'update' || mapMode === 'delete') &&
                                             obstacle.source === 'dronenav'
-                                        ) {
-                                            setSelectedObject({
-                                                type: 'obstacle',
-                                                data: obstacle,
-                                            });
-                                            setObstacleName(obstacle.obstacle_name);
-                                            setObstacleMaximumHeightAglFt(
-                                                obstacle.maximum_height_agl_ft ?? 0
-                                            );
-                                            setObstacleDescription(obstacle.description || '');
-                                        }
-                                    },
-                                }}
-                            >
-                                <Popup>
-                                    <strong>{obstacle.obstacle_name}</strong>
-                                    <br />
-                                    Type: {obstacle.obstacle_type}
-                                    <br />
-                                    Source: {obstacle.source}
-                                    <br />
-                                    {obstacle.site_id && (
-                                        <>
-                                            Site ID: {obstacle.site_id}
-                                            <br />
-                                        </>
-                                    )}
-                                    Height: {obstacle.maximum_height_agl_ft} ft AGL
-                                    <br />
-                                    Status: {obstacle.operational_status}
-                                    <br />
-                                    Survey: {obstacle.survey_status}
-                                    <br />
-                                    Description: {obstacle.description}
-                                    <br />
-                                    Coordinates: {obstacle.geometry.coordinates.join(', ')}
-                                    <br />
-                                    Created by: {obstacle.created_by}
-                                    <br />
-                                    Created: {obstacle.created_at?.split('.')[0]}
-                                    <br />
-                                    Obstacle ID: {obstacle.obstacle_id}
-                                </Popup>
-                            </CircleMarker>
-                        ))
-                    }
+                                            ? 'editPane'
+                                            : 'obstaclesPane'
+                                    }
+                                    key={`${obstacle.obstacle_id}-${mapMode}`}
+                                    center={[
+                                        obstacle.geometry.coordinates[1],
+                                        obstacle.geometry.coordinates[0],
+                                    ]}
+                                    radius={6}
+                                    pathOptions={{
+                                        color: deEmphasizedMapContextObstacle ? 'gray' : 'goldenrod',
+                                        fillColor: deEmphasizedMapContextObstacle ? 'gray' : 'yellow',
+                                        weight: selectedMapContextObstacle ? 5 : 2,
+                                        opacity: deEmphasizedMapContextObstacle ? 0.45 : 0.9,
+                                        fillOpacity: deEmphasizedMapContextObstacle ? 0.10 : 0.7,
+                                        dashArray:
+                                            obstacle.operational_status === 'active'
+                                                ? null
+                                                : '4, 8',
+                                    }}
+                                    eventHandlers={{
+                                        click: (event) => {
+                                            L.DomEvent.stopPropagation(event.originalEvent);
+                                            if (
+                                                (mapMode === 'update' || mapMode === 'delete') &&
+                                                obstacle.source === 'dronenav'
+                                            ) {
+                                                setSelectedObject({
+                                                    type: 'obstacle',
+                                                    data: obstacle,
+                                                });
+                                                setObstacleName(obstacle.obstacle_name);
+                                                setObstacleMaximumHeightAglFt(
+                                                    obstacle.maximum_height_agl_ft ?? 0
+                                                );
+                                                setObstacleDescription(obstacle.description || '');
+                                            }
+                                        },
+                                    }}
+                                >
+                                    <Popup>
+                                        <strong>{obstacle.obstacle_name}</strong>
+                                        <br />
+                                        Type: {obstacle.obstacle_type}
+                                        <br />
+                                        Source: {obstacle.source}
+                                        <br />
+                                        {obstacle.site_id && (
+                                            <>
+                                                Site ID: {obstacle.site_id}
+                                                <br />
+                                            </>
+                                        )}
+                                        Height: {obstacle.maximum_height_agl_ft} ft AGL
+                                        <br />
+                                        Status: {obstacle.operational_status}
+                                        <br />
+                                        Survey: {obstacle.survey_status}
+                                        <br />
+                                        Description: {obstacle.description}
+                                        <br />
+                                        Coordinates: {obstacle.geometry.coordinates.join(', ')}
+                                        <br />
+                                        Created by: {obstacle.created_by}
+                                        <br />
+                                        Created: {obstacle.created_at?.split('.')[0]}
+                                        <br />
+                                        Obstacle ID: {obstacle.obstacle_id}
+                                    </Popup>
+                                </CircleMarker>
+                            );
+                        })}
 
                     {savedObstacles
                         .filter(
@@ -3684,35 +3704,205 @@ export default function MapView({
                                 Array.isArray(obstacle.geometry.coordinates) &&
                                 obstacle.geometry.coordinates.length >= 2
                         )
-                        .map((obstacle) => (
-                            <Fragment key={`${obstacle.obstacle_id}-${mapMode}`}>
-                                <Polyline
+                        .map((obstacle) => {
+                            const selectedMapContextObstacle =
+                                isMapContextMode &&
+                                selectedMapContextObstacleIds.has(obstacle.obstacle_id);
+
+                            const deEmphasizedMapContextObstacle =
+                                isMapContextMode && !selectedMapContextObstacle;
+
+                            return (
+                                <Fragment key={`${obstacle.obstacle_id}-${mapMode}`}>
+                                    <Polyline
+                                        pane="obstaclesPane"
+                                        positions={obstacle.geometry.coordinates.map((coordinate) => [
+                                            coordinate[1],
+                                            coordinate[0],
+                                        ])}
+                                        pathOptions={{
+                                            color: deEmphasizedMapContextObstacle ? 'gray' : 'goldenrod',
+                                            weight: selectedMapContextObstacle ? 5 : 3,
+                                            opacity: deEmphasizedMapContextObstacle ? 0.45 : 0.9,
+                                            dashArray:
+                                                obstacle.operational_status === 'active'
+                                                    ? null
+                                                    : '4, 8',
+                                        }}
+                                    />
+                                    <Polyline
+                                        pane="obstaclesPane"
+                                        positions={obstacle.geometry.coordinates.map((coordinate) => [
+                                            coordinate[1],
+                                            coordinate[0],
+                                        ])}
+                                        pathOptions={{
+                                            color: 'transparent',
+                                            weight: 20,
+                                            opacity: 0,
+                                        }}
+                                        eventHandlers={{
+                                            click: () => {
+                                                if (
+                                                    (mapMode === 'update' || mapMode === 'delete') &&
+                                                    obstacle.source === 'dronenav'
+                                                ) {
+                                                    setSelectedObject({
+                                                        type: 'obstacle',
+                                                        data: obstacle,
+                                                    });
+
+                                                    setObstacleName(obstacle.obstacle_name);
+                                                    setObstacleMaximumHeightAglFt(
+                                                        obstacle.maximum_height_agl_ft ?? 0
+                                                    );
+                                                    setObstacleDescription(obstacle.description || '');
+                                                }
+                                            },
+                                        }}
+                                    >
+                                        <Popup>
+                                            <strong>{obstacle.obstacle_name}</strong>
+                                            <br />
+                                            Type: {obstacle.obstacle_type}
+                                            <br />
+                                            Source: {obstacle.source}
+                                            <br />
+                                            {obstacle.site_id && (
+                                                <>
+                                                    Site ID: {obstacle.site_id}
+                                                    <br />
+                                                </>
+                                            )}
+                                            Height: {obstacle.maximum_height_agl_ft} ft AGL
+                                            <br />
+                                            Status: {obstacle.operational_status}
+                                            <br />
+                                            Survey: {obstacle.survey_status}
+                                            <br />
+                                            Description: {obstacle.description}
+                                            <br />
+                                            Coordinates: {obstacle.geometry.coordinates[0].join(', ')}
+                                            <br />
+                                            Created by: {obstacle.created_by}
+                                            <br />
+                                            Created: {obstacle.created_at?.split('.')[0]}
+                                            <br />
+                                            Obstacle ID: {obstacle.obstacle_id}
+                                        </Popup>
+                                    </Polyline>
+                                </Fragment>
+                            );
+                        })}
+
+                    {savedObstacles
+                        .filter(
+                            (obstacle) =>
+                                obstacle.geometry &&
+                                obstacle.geometry.type === 'LineString' &&
+                                Array.isArray(obstacle.geometry.coordinates)
+                        )
+                        .flatMap((obstacle) => {
+                            const selectedMapContextObstacle =
+                                isMapContextMode &&
+                                selectedMapContextObstacleIds.has(obstacle.obstacle_id);
+
+                            const deEmphasizedMapContextObstacle =
+                                isMapContextMode && !selectedMapContextObstacle;
+
+                            return obstacle.geometry.coordinates.map((coordinate, index) => (
+                                <CircleMarker
                                     pane="obstaclesPane"
-                                    positions={obstacle.geometry.coordinates.map((coordinate) => [
+                                    key={`${obstacle.obstacle_id}-point-${index}`}
+                                    center={[
+                                        coordinate[1],
+                                        coordinate[0],
+                                    ]}
+                                    radius={5}
+                                    pathOptions={{
+                                        color: deEmphasizedMapContextObstacle ? 'gray' : 'goldenrod',
+                                        fillColor: deEmphasizedMapContextObstacle ? 'gray' : 'yellow',
+                                        weight: 2,
+                                        opacity:
+                                            obstacle.operational_status === 'active'
+                                                ? 0.9
+                                                : 0.5,
+                                        fillOpacity:
+                                            obstacle.operational_status === 'active'
+                                                ? 0.7
+                                                : 0.25,
+                                    }}                                >
+                                    <Popup>
+                                        <strong>{obstacle.obstacle_name}</strong>
+                                        <br />
+                                        Type: {obstacle.obstacle_type}
+                                        <br />
+                                        Source: {obstacle.source}
+                                        <br />
+                                        {obstacle.site_id && (
+                                            <>
+                                                Site ID: {obstacle.site_id}
+                                                <br />
+                                            </>
+                                        )}
+                                        Pole: {index + 1}
+                                        <br />
+                                        Height: {obstacle.maximum_height_agl_ft} ft AGL
+                                        <br />
+                                        Status: {obstacle.operational_status}
+                                        <br />
+                                        Survey: {obstacle.survey_status}
+                                        <br />
+                                        Description: {obstacle.description}
+                                        <br />
+                                        Coordinates: {coordinate.join(', ')}
+                                        <br />
+                                        Created by: {obstacle.created_by}
+                                        <br />
+                                        Created: {obstacle.created_at?.split('.')[0]}
+                                        <br />
+                                        Obstacle ID: {obstacle.obstacle_id}
+                                    </Popup>
+                                </CircleMarker>
+                            ));
+                        })
+                    }
+
+                    {savedObstacles
+                        .filter(
+                            (obstacle) =>
+                                obstacle.geometry &&
+                                obstacle.geometry.type === 'Polygon' &&
+                                Array.isArray(obstacle.geometry.coordinates) &&
+                                Array.isArray(obstacle.geometry.coordinates[0]) &&
+                                obstacle.geometry.coordinates[0].length >= 4
+                        )
+                        .map((obstacle) => {
+                            const selectedMapContextObstacle =
+                                isMapContextMode &&
+                                selectedMapContextObstacleIds.has(obstacle.obstacle_id);
+
+                            const deEmphasizedMapContextObstacle =
+                                isMapContextMode && !selectedMapContextObstacle;
+
+                            return (
+                                <Polygon
+                                    pane="obstaclesPane"
+                                    key={`${obstacle.obstacle_id}-${mapMode}`}
+                                    positions={obstacle.geometry.coordinates[0].map((coordinate) => [
                                         coordinate[1],
                                         coordinate[0],
                                     ])}
                                     pathOptions={{
-                                        color: 'goldenrod',
-                                        weight: 3,
-                                        opacity: 0.9,
+                                        color: deEmphasizedMapContextObstacle ? 'gray' : 'goldenrod',
+                                        fillColor: deEmphasizedMapContextObstacle ? 'gray' : 'yellow',
+                                        weight: selectedMapContextObstacle ? 5 : 2,
+                                        opacity: deEmphasizedMapContextObstacle ? 0.45 : 0.9,
+                                        fillOpacity: deEmphasizedMapContextObstacle ? 0.06 : 0.25,
                                         dashArray:
                                             obstacle.operational_status === 'active'
                                                 ? null
                                                 : '4, 8',
-                                    }}
-                                />
-
-                                <Polyline
-                                    pane="obstaclesPane"
-                                    positions={obstacle.geometry.coordinates.map((coordinate) => [
-                                        coordinate[1],
-                                        coordinate[0],
-                                    ])}
-                                    pathOptions={{
-                                        color: 'transparent',
-                                        weight: 20,
-                                        opacity: 0,
                                     }}
                                     eventHandlers={{
                                         click: () => {
@@ -3755,7 +3945,7 @@ export default function MapView({
                                         <br />
                                         Description: {obstacle.description}
                                         <br />
-                                        Coordinates: {obstacle.geometry.coordinates[0].join(', ')}
+                                        Coordinates: {obstacle.geometry.coordinates[0][0].join(', ')}
                                         <br />
                                         Created by: {obstacle.created_by}
                                         <br />
@@ -3763,158 +3953,9 @@ export default function MapView({
                                         <br />
                                         Obstacle ID: {obstacle.obstacle_id}
                                     </Popup>
-                                </Polyline>
-                            </Fragment>
-                        ))
-                    }
-
-                    {savedObstacles
-                        .filter(
-                            (obstacle) =>
-                                obstacle.geometry &&
-                                obstacle.geometry.type === 'LineString' &&
-                                Array.isArray(obstacle.geometry.coordinates)
-                        )
-                        .flatMap((obstacle) =>
-                            obstacle.geometry.coordinates.map((coordinate, index) => (
-                                <CircleMarker
-                                    pane="obstaclesPane"
-                                    key={`${obstacle.obstacle_id}-point-${index}`}
-                                    center={[
-                                        coordinate[1],
-                                        coordinate[0],
-                                    ]}
-                                    radius={5}
-                                    pathOptions={{
-                                        color: 'goldenrod',
-                                        fillColor: 'yellow',
-                                        weight: 2,
-                                        opacity:
-                                            obstacle.operational_status === 'active'
-                                                ? 0.9
-                                                : 0.5,
-                                        fillOpacity:
-                                            obstacle.operational_status === 'active'
-                                                ? 0.7
-                                                : 0.25,
-                                    }}
-                                >
-                                    <Popup>
-                                        <strong>{obstacle.obstacle_name}</strong>
-                                        <br />
-                                        Type: {obstacle.obstacle_type}
-                                        <br />
-                                        Source: {obstacle.source}
-                                        <br />
-                                        {obstacle.site_id && (
-                                            <>
-                                                Site ID: {obstacle.site_id}
-                                                <br />
-                                            </>
-                                        )}
-                                        Pole: {index + 1}
-                                        <br />
-                                        Height: {obstacle.maximum_height_agl_ft} ft AGL
-                                        <br />
-                                        Status: {obstacle.operational_status}
-                                        <br />
-                                        Survey: {obstacle.survey_status}
-                                        <br />
-                                        Description: {obstacle.description}
-                                        <br />
-                                        Coordinates: {coordinate.join(', ')}
-                                        <br />
-                                        Created by: {obstacle.created_by}
-                                        <br />
-                                        Created: {obstacle.created_at?.split('.')[0]}
-                                        <br />
-                                        Obstacle ID: {obstacle.obstacle_id}
-                                    </Popup>
-                                </CircleMarker>
-                            ))
-                        )
-                    }
-
-                    {savedObstacles
-                        .filter(
-                            (obstacle) =>
-                                obstacle.geometry &&
-                                obstacle.geometry.type === 'Polygon' &&
-                                Array.isArray(obstacle.geometry.coordinates) &&
-                                Array.isArray(obstacle.geometry.coordinates[0]) &&
-                                obstacle.geometry.coordinates[0].length >= 4
-                        )
-                        .map((obstacle) => (
-                            <Polygon
-                                pane="obstaclesPane"
-                                key={`${obstacle.obstacle_id}-${mapMode}`}
-                                positions={obstacle.geometry.coordinates[0].map((coordinate) => [
-                                    coordinate[1],
-                                    coordinate[0],
-                                ])}
-                                pathOptions={{
-                                    color: 'goldenrod',
-                                    fillColor: 'yellow',
-                                    weight: 2,
-                                    opacity: 0.9,
-                                    fillOpacity: 0.25,
-                                    dashArray:
-                                        obstacle.operational_status === 'active'
-                                            ? null
-                                            : '4, 8',
-                                }}
-                                eventHandlers={{
-                                    click: () => {
-                                        if (
-                                            (mapMode === 'update' || mapMode === 'delete') &&
-                                            obstacle.source === 'dronenav'
-                                        ) {
-                                            setSelectedObject({
-                                                type: 'obstacle',
-                                                data: obstacle,
-                                            });
-
-                                            setObstacleName(obstacle.obstacle_name);
-                                            setObstacleMaximumHeightAglFt(
-                                                obstacle.maximum_height_agl_ft ?? 0
-                                            );
-                                            setObstacleDescription(obstacle.description || '');
-                                        }
-                                    },
-                                }}
-                            >
-                                <Popup>
-                                    <strong>{obstacle.obstacle_name}</strong>
-                                    <br />
-                                    Type: {obstacle.obstacle_type}
-                                    <br />
-                                    Source: {obstacle.source}
-                                    <br />
-                                    {obstacle.site_id && (
-                                        <>
-                                            Site ID: {obstacle.site_id}
-                                            <br />
-                                        </>
-                                    )}
-                                    Height: {obstacle.maximum_height_agl_ft} ft AGL
-                                    <br />
-                                    Status: {obstacle.operational_status}
-                                    <br />
-                                    Survey: {obstacle.survey_status}
-                                    <br />
-                                    Description: {obstacle.description}
-                                    <br />
-                                    Coordinates: {obstacle.geometry.coordinates[0][0].join(', ')}
-                                    <br />
-                                    Created by: {obstacle.created_by}
-                                    <br />
-                                    Created: {obstacle.created_at?.split('.')[0]}
-                                    <br />
-                                    Obstacle ID: {obstacle.obstacle_id}
-                                </Popup>
-                            </Polygon>
-                        ))
-                    }
+                                </Polygon>
+                            );
+                        })}
 
                     {savedDroneports
                         .filter(

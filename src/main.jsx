@@ -46,12 +46,14 @@ const contextSites = parseUuidList(rootElement?.dataset?.contextSites);
 const contextZones = parseUuidList(rootElement?.dataset?.contextZones);
 const contextDroneports = parseUuidList(rootElement?.dataset?.contextDroneports);
 const contextRoutes = parseUuidList(rootElement?.dataset?.contextRoutes);
+const contextObstacles = parseUuidList(rootElement?.dataset?.contextObstacles);
 
 const mapContextRequest = {
   sites: contextSites,
   zones: contextZones,
   droneports: contextDroneports,
   routes: contextRoutes,
+  obstacles: contextObstacles,
 };
 
 console.log('DroneNav map props:', {
