@@ -21,6 +21,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import MapView from './components/MapView';
+import Network3DView from './components/Network3DView';
 
 const rootElement = document.getElementById('root');
 
@@ -66,14 +67,18 @@ console.log('DroneNav map props:', {
 });
 
 createRoot(rootElement).render(
-    <StrictMode>
-        <MapView
-            mode={mode}
-            overlayType={overlayType}
-            overlayUuid={overlayUuid}
-            siteId={siteId}
-            authorityId={authorityId}
-            mapContextRequest={mapContextRequest}
-        />
-    </StrictMode>
+  <StrictMode>
+    {mode === 'network3d' ? (
+      <Network3DView />
+    ) : (
+      <MapView
+        mode={mode}
+        overlayType={overlayType}
+        overlayUuid={overlayUuid}
+        siteId={siteId}
+        authorityId={authorityId}
+        mapContextRequest={mapContextRequest}
+      />
+    )}
+  </StrictMode>
 );
