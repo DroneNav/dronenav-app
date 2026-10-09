@@ -8,6 +8,8 @@ import RouteIntersection3D from './RouteIntersection3D';
 import DronePort3D from './DronePort3D';
 import FlightBands3D from './FlightBands3D';
 import { geoTo3D } from '../utils/geoTo3D';
+import { NETWORK_ORIGIN } from '../config/network3d';
+import SiteOutline3D from './SiteOutline3D';
 
 
 export default function Network3DView() {
@@ -15,6 +17,7 @@ export default function Network3DView() {
     const [referenceData, setReferenceData] = useState(null);
     const [routes, setRoutes] = useState([]);
     const [droneports, setDroneports] = useState([]);
+    const [sites, setSites] = useState([]);
 
     useEffect(() => {
         async function loadReferenceData() {
@@ -109,12 +112,48 @@ export default function Network3DView() {
         loadDroneports();
     }, []);
 
+    useEffect(() => {
+        async function loadSites() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/sites`, {
+                    credentials: 'same-origin',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load Sites');
+                }
+
+                const result = await response.json();
+
+                const activeSites = result.sites.filter(
+                    site => site.operational_status === 'active'
+                );
+
+                setSites(activeSites);
+
+                console.log(
+                    '3D active Sites:',
+                    activeSites.map(site => site.site_name)
+                );
+            } catch (error) {
+                console.error('3D Site loading failed:', error);
+            }
+        }
+
+        loadSites();
+    }, []);
+
     const floorAGL = Number(referenceData?.default_floor_agl_ft);
     const maxAGL = Number(referenceData?.default_max_agl_ft);
 
     return (
         <div style={{ width: '100%', height: '100vh' }}>
-            <Canvas camera={{ position: [100, 100, 180], fov: 50 }}>
+            <Canvas camera={{
+                position: [1125, 900, 1500],
+                fov: 50,
+                near: 1,
+                far: 20000
+            }}>
                 <ambientLight intensity={0.7} />
                 <directionalLight position={[20, 40, 20]} intensity={1.2} />
 
@@ -132,7 +171,7 @@ export default function Network3DView() {
                 {Number.isFinite(maxAGL) && droneports.map(droneport => {
                     const [x, z] = geoTo3D(
                         droneport.geometry.coordinates,
-                        [-84.302888917, 34.074449209]
+                        NETWORK_ORIGIN
                     );
 
                     return (
@@ -145,9 +184,32 @@ export default function Network3DView() {
                     );
                 })}
 
+                {sites.map(site => (
+                    <SiteOutline3D
+                        key={site.site_id}
+                        site={site}
+                    />
+                ))}
+
+                <mesh
+                    position={[0, -1, 0]}
+                    rotation={[-Math.PI / 2, 0, 0]}
+                >
+                    <planeGeometry args={[10000, 10000]} />
+                    <meshStandardMaterial
+                        color="#34443c"
+                        roughness={1}
+                        metalness={0}
+                    />
+                </mesh>
+
                 <gridHelper args={[400, 40]} />
                 <axesHelper args={[50]} />
-                <OrbitControls target={[0, 150, 0]} />
+                <OrbitControls
+                    target={[0, 150, 0]}
+                    minPolarAngle={0}
+                    maxPolarAngle={Math.PI / 2.1}
+                />
             </Canvas>
         </div>
     );

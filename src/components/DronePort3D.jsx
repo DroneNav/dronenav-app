@@ -25,19 +25,33 @@ export default function DronePort3D({
         depthWrite={false}
         side={THREE.DoubleSide}
       />
-      <lineSegments>
-        <edgesGeometry
-          args={[
-            new THREE.CylinderGeometry(
-              diameter / 2,
-              diameter / 2,
-              height,
-              48
-            ),
-          ]}
-        />
-        <lineBasicMaterial color="#00cc88" />
-      </lineSegments>
+
+      {[-height / 2, height / 2].map((y) => (
+        <lineLoop
+          key={y}
+          position={[0, y, 0]}
+        >
+          <bufferGeometry>
+            <bufferAttribute
+              attach="attributes-position"
+              args={[
+                new Float32Array(
+                  Array.from({ length: 48 }, (_, i) => {
+                    const angle = (i / 48) * Math.PI * 2;
+                    return [
+                      Math.cos(angle) * diameter / 2,
+                      0,
+                      Math.sin(angle) * diameter / 2,
+                    ];
+                  }).flat()
+                ),
+                3,
+              ]}
+            />
+          </bufferGeometry>
+          <lineBasicMaterial color="#00cc88" />
+        </lineLoop>
+      ))}
     </mesh>
   );
 }
