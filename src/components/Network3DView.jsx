@@ -2,7 +2,7 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+import { OrbitControls, Text } from '@react-three/drei';
 import { API_BASE_URL } from '../config/api';
 import RouteIntersection3D from './RouteIntersection3D';
 import DronePort3D from './DronePort3D';
@@ -148,6 +148,22 @@ export default function Network3DView() {
 
     return (
         <div style={{ width: '100%', height: '100vh' }}>
+            <div
+                style={{
+                    position: 'absolute',
+                    top: '24px',
+                    left: '32px',
+                    zIndex: 1000,
+                    fontSize: '36px',
+                    fontWeight: 'bold',
+                    color: '#ffffff',
+                    fontFamily: 'Arial, sans-serif',
+                    pointerEvents: 'none',
+                }}
+            >
+                Traffic Management Network
+            </div>
+
             <Canvas camera={{
                 position: [1125, 900, 1500],
                 fov: 50,
@@ -204,6 +220,16 @@ export default function Network3DView() {
                 </mesh>
 
                 <gridHelper args={[400, 40]} />
+                <Text
+                    position={[40, 2, 40]}
+                    rotation={[-Math.PI / 2, 0, 0]}
+                    fontSize={24}
+                    color="#ffffff"
+                    anchorX="left"
+                    anchorY="middle"
+                >
+                    {`[${NETWORK_ORIGIN[1].toFixed(6)}° N, ${Math.abs(NETWORK_ORIGIN[0]).toFixed(6)}° W]`}
+                </Text>
                 <axesHelper args={[50]} />
                 <OrbitControls
                     target={[0, 150, 0]}

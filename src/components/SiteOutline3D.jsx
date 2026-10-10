@@ -68,7 +68,7 @@ export default function SiteOutline3D({ site }) {
             <Text
                 position={[labelX, 1, labelZ]}
                 rotation={[-Math.PI / 2, 0, 0]}
-                fontSize={36}
+                fontSize={40}
                 color="#88aa88"
                 anchorX="center"
                 anchorY="bottom"
