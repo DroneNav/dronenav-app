@@ -10,6 +10,8 @@ import FlightBands3D from './FlightBands3D';
 import { geoTo3D } from '../utils/geoTo3D';
 import { NETWORK_ORIGIN } from '../config/network3d';
 import SiteOutline3D from './SiteOutline3D';
+import { aircraftCountForLane } from '../utils/aircraftPosition3D';
+import NetworkCompass3D from './NetworkCompass3D';
 
 
 export default function Network3DView() {
@@ -146,6 +148,26 @@ export default function Network3DView() {
     const floorAGL = Number(referenceData?.default_floor_agl_ft);
     const maxAGL = Number(referenceData?.default_max_agl_ft);
 
+    const aircraftCount = routes.reduce((total, route, routeIndex) => {
+        if (route.geometry.coordinates.length < 2) {
+            return total;
+        }
+
+        for (let slotIndex = 1; slotIndex <= 12; slotIndex++) {
+            for (let laneIndex = 0; laneIndex < 2; laneIndex++) {
+                total += aircraftCountForLane(
+                    routeIndex,
+                    slotIndex,
+                    laneIndex
+                );
+            }
+        }
+
+        return total;
+    }, 0);
+
+    const [compassHeading, setCompassHeading] = useState(0);
+
     return (
         <div style={{ width: '100%', height: '100vh' }}>
             <div
@@ -161,7 +183,163 @@ export default function Network3DView() {
                     pointerEvents: 'none',
                 }}
             >
-                Traffic Management Network
+                DroneNav Traffic Management Network
+            </div>
+
+            <div
+                style={{
+                    position: 'absolute',
+                    top: '24px',
+                    right: '32px',
+                    zIndex: 1000,
+                    padding: '16px 20px',
+                    background: 'rgba(15, 23, 32, 0.85)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '14px',
+                    pointerEvents: 'none',
+                    minWidth: '190px',
+                }}
+            >
+                <div style={{
+                    fontWeight: 'bold',
+                    fontSize: '16px',
+                    marginBottom: '10px',
+                }}>
+                    Network Overview
+                </div>
+
+                <div>Routes: {routes.length}</div>
+                <div>Flight Bands: 4</div>
+                <div>Altitude Slots: 12</div>
+                <div>Aircraft: {aircraftCount}</div>
+            </div>
+
+            <div
+                style={{
+                    position: 'absolute',
+                    top: '220px',
+                    right: '32px',
+                    zIndex: 1000,
+                    padding: '16px 20px',
+                    background: 'rgba(15, 23, 32, 0.85)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    borderRadius: '8px',
+                    color: '#ffffff',
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '14px',
+                    pointerEvents: 'none',
+                    minWidth: '190px',
+                }}
+            >
+                <div
+                    style={{
+                        fontWeight: 'bold',
+                        fontSize: '16px',
+                        marginBottom: '10px',
+                    }}
+                >
+                    Flight Bands
+                </div>
+
+                {[
+                    { color: '#3399cc', slots: 3, minAGL: 50, maxAGL: 130 },
+                    { color: '#00aa88', slots: 3, minAGL: 140, maxAGL: 220 },
+                    { color: '#cc9933', slots: 3, minAGL: 230, maxAGL: 310 },
+                    { color: '#aa66cc', slots: 3, minAGL: 320, maxAGL: 400 },
+                ].map((band, index) => (
+
+                    <div
+                        key={index}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            marginBottom: '6px',
+                        }}
+                    >
+                        <div
+                            style={{
+                                width: '20px',
+                                height: '14px',
+                                background: band.color,
+                                borderRadius: '3px',
+                            }}
+                        />
+
+                        <span>
+                            Band {index + 1}: {band.minAGL}–{band.maxAGL} ft AGL ({band.slots} slots)
+                        </span>
+                    </div>
+                ))}
+
+                <div
+                    style={{
+                        fontSize: '12px',
+                        color: '#bbbbbb',
+                        marginTop: '12px',
+                    }}
+                >
+                    <div>Slot height: 20 ft</div>
+                    <div>Route width: 30 ft</div>
+                    <div>Vertical separation: 10 ft</div>
+                </div>
+            </div>
+
+            <div
+                style={{
+                    position: 'absolute',
+                    bottom: '24px',
+                    right: '32px',
+                    zIndex: 1000,
+                    width: '90px',
+                    height: '90px',
+                    borderRadius: '50%',
+                    background: 'rgba(15, 23, 32, 0.85)',
+                    border: '1px solid rgba(255, 255, 255, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    pointerEvents: 'none',
+                }}
+            >
+                <div
+                    style={{
+                        position: 'relative',
+                        width: '60px',
+                        height: '60px',
+                        transform: `rotate(${compassHeading}rad)`,
+                    }}
+                >
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '0',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            color: '#ffffff',
+                            fontSize: '32px',
+                            fontWeight: 'bold',
+                        }}
+                    >
+                        ↑
+                    </div>
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '28px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            color: '#ffffff',
+                            fontSize: '14px',
+                            fontWeight: 'bold',
+                        }}
+                    >
+                        N
+                    </div>
+                </div>
             </div>
 
             <Canvas camera={{
@@ -220,6 +398,7 @@ export default function Network3DView() {
                 </mesh>
 
                 <gridHelper args={[400, 40]} />
+
                 <Text
                     position={[40, 2, 40]}
                     rotation={[-Math.PI / 2, 0, 0]}
@@ -230,12 +409,17 @@ export default function Network3DView() {
                 >
                     {`[${NETWORK_ORIGIN[1].toFixed(6)}° N, ${Math.abs(NETWORK_ORIGIN[0]).toFixed(6)}° W]`}
                 </Text>
+
                 <axesHelper args={[50]} />
+
                 <OrbitControls
                     target={[0, 150, 0]}
                     minPolarAngle={0}
                     maxPolarAngle={Math.PI / 2.1}
                 />
+
+                <NetworkCompass3D onHeadingChange={setCompassHeading} />
+
             </Canvas>
         </div>
     );
