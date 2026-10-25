@@ -307,6 +307,100 @@ function findRouteEndpointSnapTarget(latlng, savedRoutes, snapDistanceFt) {
     return nearestTarget;
 }
 
+function validateRouteEndpointConnections(
+    coordinates,
+    savedRoutes,
+    savedDroneports,
+    minimumAngleDegrees
+) {
+    const endpoints = [
+        { index: 0, adjacentIndex: 1 },
+        {
+            index: coordinates.length - 1,
+            adjacentIndex: coordinates.length - 2,
+        },
+    ];
+
+    for (const endpoint of endpoints) {
+        const [lng, lat] = coordinates[endpoint.index];
+        const [adjacentLng, adjacentLat] =
+            coordinates[endpoint.adjacentIndex];
+
+        const vertex = L.latLng(lat, lng);
+        const adjacent = L.latLng(adjacentLat, adjacentLng);
+
+        const hasDroneport = savedDroneports.some((droneport) => {
+            const location = droneport.geometry?.coordinates;
+
+            return (
+                Array.isArray(location) &&
+                location.length === 2 &&
+                L.latLng(location[1], location[0])
+                    .distanceTo(vertex) < 0.01
+            );
+        });
+
+        if (hasDroneport) {
+            continue;
+        }
+
+        let connectedRoutes = 0;
+
+        for (const route of savedRoutes) {
+            const routeCoordinates = route.geometry?.coordinates;
+
+            if (!Array.isArray(routeCoordinates) ||
+                routeCoordinates.length < 2) {
+                continue;
+            }
+
+            const existingEndpoints = [
+                { index: 0, adjacentIndex: 1 },
+                {
+                    index: routeCoordinates.length - 1,
+                    adjacentIndex: routeCoordinates.length - 2,
+                },
+            ];
+
+            for (const existing of existingEndpoints) {
+                const [existingLng, existingLat] =
+                    routeCoordinates[existing.index];
+
+                const existingVertex =
+                    L.latLng(existingLat, existingLng);
+
+                if (existingVertex.distanceTo(vertex) >= 0.01) {
+                    continue;
+                }
+
+                connectedRoutes++;
+
+                if (connectedRoutes > 1) {
+                    return 'A non-DronePort endpoint may connect only two Routes.';
+                }
+
+                const [otherLng, otherLat] =
+                    routeCoordinates[existing.adjacentIndex];
+
+                const angle = calculateInteriorAngleDegrees(
+                    L.latLng(otherLat, otherLng),
+                    vertex,
+                    adjacent
+                );
+
+                if (angle === null || angle < minimumAngleDegrees) {
+                    return (
+                        `Route endpoint connection angle must be at least ` +
+                        `${minimumAngleDegrees}°.`
+                    );
+                }
+            }
+        }
+    }
+
+    return null;
+}
+
 function findDroneportSnapTarget(latlng, savedDroneports, snapDistanceFt) {
     let nearestTarget = null;
     let nearestDistanceFt = snapDistanceFt;
@@ -1391,6 +1485,18 @@ export default function MapView({
                 ),
             },
         };
+
+        const connectionError = validateRouteEndpointConnections(
+            payloadToSave.geometry.coordinates,
+            savedRoutes,
+            savedDroneports,
+            MIN_ROUTE_INTERIOR_ANGLE_DEGREES
+        );
+
+        if (connectionError) {
+            alert(connectionError);
+            return;
+        }
 
         if (points.length >= 4) {
             const secondLastPoint = points[points.length - 2];
@@ -3238,7 +3344,7 @@ export default function MapView({
                             <pre>{JSON.stringify(zonePayload, null, 2)}</pre>
                         </div>
                     )}
-                    
+
                     {!isReadOnly && mapMode === 'create_obstacle' && obstaclePayload && (
                         <div style={{ padding: '10px' }}>
                             <h3>Obstacle Payload Preview</h3>
