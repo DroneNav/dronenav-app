@@ -1076,10 +1076,10 @@ export default function MapView({
     }, []);
 
     const DEFAULT_ROUTE_WIDTH_FT = 30;
-    const DEFAULT_SPEED_LIMIT_MPH = 15;
     const DEFAULT_MINIMUM_SEGMENT_ALTITUDE_FT = 0;
     const DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT = 400;
     const MIN_ROUTE_SEGMENT_LENGTH_FT = 501;
+    const MIN_INTERMEDIATE_SEGMENT_LENGTH_FT = 250;
     const MIN_ROUTE_INTERIOR_ANGLE_DEGREES = 120;
     const ROUTE_ENDPOINT_SNAP_DISTANCE_FT = 25;
 
@@ -1995,7 +1995,6 @@ export default function MapView({
                 maximum_altitude_ft: isApproachOrDeparture
                     ? 55
                     : DEFAULT_MAXIMUM_SEGMENT_ALTITUDE_FT,
-                speed_limit_mph: DEFAULT_SPEED_LIMIT_MPH,
             };
         });
     }
@@ -3301,22 +3300,6 @@ export default function MapView({
                                                             />
                                                         </label>
 
-                                                        <br />
-
-                                                        <label>
-                                                            Speed mph:{' '}
-                                                            <input
-                                                                type="number"
-                                                                value={segment.speed_limit_mph}
-                                                                onChange={(e) =>
-                                                                    updateEditableRouteSegmentAttribute(
-                                                                        index,
-                                                                        'speed_limit_mph',
-                                                                        e.target.value
-                                                                    )
-                                                                }
-                                                            />
-                                                        </label>
                                                     </div>
                                                 ))}
                                             </div>
