@@ -448,6 +448,7 @@ export default function MapView({
 }) {
     const [points, setPoints] = useState([]);
     const [mapMode, setMapMode] = useState('view');
+    const [clickedCoordinates, setClickedCoordinates] = useState(null);
     const [siteName, setSiteName] = useState('');
     const [siteDescription, setSiteDescription] = useState('');
     const [siteType, setSiteType] = useState('school');
@@ -479,6 +480,7 @@ export default function MapView({
     const [authorityId, setAuthorityId] = useState(initialAuthorityId || '');
     const [selectedAuthorityId, setSelectedAuthorityId] = useState(authorityId || '019e886f-5110-7067-90f9-17e73143a30a');
     const [savedSites, setSavedSites] = useState([]);
+    const [savedDropTargets, setSavedDropTargets] = useState([]);
     const [savedZones, setSavedZones] = useState([]);
     const [savedDroneports, setSavedDroneports] = useState([]);
     const [landingSpaces, setLandingSpaces] = useState([]);
@@ -543,6 +545,14 @@ export default function MapView({
     );
 
     function handleMapClick(latlng) {
+        if (mapMode === 'view') {
+            setClickedCoordinates({
+                lat: latlng.lat,
+                lng: latlng.lng,
+            });
+            return;
+        }
+
         if (isReadOnly) {
             return;
         }
@@ -671,6 +681,46 @@ export default function MapView({
         setPoints((currentPoints) => currentPoints.slice(0, -1));
     }
 
+    async function loadDropTargets(sites) {
+        const targets = [];
+
+        for (const site of sites) {
+            try {
+                const response = await fetch(
+                    `${API_BASE_URL}/residential-destinations?site_id=${encodeURIComponent(site.site_id)}`,
+                    { credentials: 'same-origin' }
+                );
+
+                if (!response.ok) {
+                    console.error(
+                        'Failed to load Drop Targets for Site:',
+                        site.site_id
+                    );
+                    continue;
+                }
+
+                const result = await response.json();
+
+                for (const destination of result.residential_destinations || []) {
+                    targets.push({
+                        site_id: destination.site_id,
+                        latitude: destination.latitude,
+                        longitude: destination.longitude,
+                    });
+                }
+            } catch (error) {
+                console.error(
+                    'Drop Target loading failed for Site:',
+                    site.site_id,
+                    error
+                );
+            }
+        }
+
+        console.log('Loaded Drop Targets:', targets);
+        setSavedDropTargets(targets);
+    }
+
     async function loadSites() {
         try {
             const response = await fetch(`${API_BASE_URL}/sites`, { credentials: 'same-origin' });
@@ -683,8 +733,12 @@ export default function MapView({
                 return;
             }
 
-            setSavedSites(result.sites || []);
-            console.log('Loaded sites:', result.sites);
+            const sites = result.sites || [];
+
+            setSavedSites(sites);
+            await loadDropTargets(sites);
+
+            console.log('Loaded sites:', sites);
         } catch (error) {
             console.error('Load sites failed:', error);
             alert('Load sites failed. Check browser console.');
@@ -826,7 +880,9 @@ export default function MapView({
                 return;
             }
 
-            setSavedSites(result.site ? [result.site] : []);
+            const sites = result.site ? [result.site] : [];
+            setSavedSites(sites);
+            await loadDropTargets(sites);
             setSavedZones(result.zones || []);
             setSavedDroneports(result.droneports || []);
             setSavedRoutes(result.routes || []);
@@ -858,7 +914,9 @@ export default function MapView({
                 return;
             }
 
-            setSavedSites(result.site ? [result.site] : []);
+            const sites = result.site ? [result.site] : [];
+            setSavedSites(sites);
+            await loadDropTargets(sites);
             setSavedZones(result.zones || []);
             setSavedDroneports(result.droneports || []);
             setSavedRoutes(result.routes || []);
@@ -895,7 +953,9 @@ export default function MapView({
                     routeMap.set(route.route_id, route);
                 });
 
-            setSavedSites(packages.map((pkg) => pkg.site).filter(Boolean));
+            const sites = packages.map((pkg) => pkg.site).filter(Boolean);
+            setSavedSites(sites);
+            await loadDropTargets(sites);
             setSavedZones(packages.flatMap((pkg) => pkg.zones || []));
             setSavedDroneports(packages.flatMap((pkg) => pkg.droneports || []));
             setSavedRoutes(Array.from(routeMap.values()));
@@ -978,10 +1038,13 @@ export default function MapView({
             const selection = result.selection || {};
             const context = result.context || {};
 
-            setSavedSites([
+            const sites = [
                 ...(context.sites || []),
                 ...(selection.sites || []),
-            ]);
+            ];
+
+            setSavedSites(sites);
+            await loadDropTargets(sites);
 
             setSavedZones([
                 ...(context.zones || []),
@@ -1599,6 +1662,9 @@ export default function MapView({
             if (type === 'site') {
                 setSavedSites((current) =>
                     current.filter((site) => site.site_id !== data.site_id)
+                );
+                setSavedDropTargets((current) =>
+                    current.filter((target) => target.site_id !== data.site_id)
                 );
             } else if (type === 'zone') {
                 setSavedZones((current) =>
@@ -3445,6 +3511,13 @@ export default function MapView({
                         <div style={{ padding: '10px' }}>
                             Current Center: {currentCenter[0].toFixed(6)},{' '}
                             {currentCenter[1].toFixed(6)}
+
+                            {mapMode === 'view' && clickedCoordinates && (
+                                <div style={{ marginTop: '6px' }}>
+                                    Click Point: {clickedCoordinates.lat.toFixed(6)},{' '}
+                                    {clickedCoordinates.lng.toFixed(6)}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -3585,7 +3658,14 @@ export default function MapView({
                                         mapMode === 'delete'
                                     }
                                     eventHandlers={{
-                                        click: () => {
+                                        click: (event) => {
+                                            if (mapMode === 'view') {
+                                                setClickedCoordinates({
+                                                    lat: event.latlng.lat,
+                                                    lng: event.latlng.lng,
+                                                });
+                                            }
+
                                             if (mapMode === 'update' || mapMode === 'delete') {
                                                 setSelectedObject({
                                                     type: 'site',
@@ -3624,6 +3704,51 @@ export default function MapView({
                             );
                         })
                     }
+
+                    {savedDropTargets.map((target, index) => {
+                        const lat = Number(target.latitude);
+                        const lng = Number(target.longitude);
+
+                        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                            return null;
+                        }
+
+                        const radiusMeters = 3.048; // 10 feet
+                        const latOffset = radiusMeters / 111320;
+                        const lngOffset =
+                            radiusMeters / (111320 * Math.cos(lat * Math.PI / 180));
+
+                        return (
+                            <Fragment key={`${target.site_id}-${index}`}>
+                                <Circle
+                                    center={[lat, lng]}
+                                    radius={radiusMeters}
+                                    pathOptions={{
+                                        color: 'red',
+                                        weight: 1,
+                                        fill: false,
+                                    }}
+                                    interactive={false}
+                                />
+                                <Polyline
+                                    positions={[
+                                        [lat, lng - lngOffset],
+                                        [lat, lng + lngOffset],
+                                    ]}
+                                    pathOptions={{ color: 'red', weight: 1 }}
+                                    interactive={false}
+                                />
+                                <Polyline
+                                    positions={[
+                                        [lat - latOffset, lng],
+                                        [lat + latOffset, lng],
+                                    ]}
+                                    pathOptions={{ color: 'red', weight: 1 }}
+                                    interactive={false}
+                                />
+                            </Fragment>
+                        );
+                    })}
 
                     {savedZones
                         .filter(
