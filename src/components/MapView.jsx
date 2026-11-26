@@ -1616,6 +1616,11 @@ export default function MapView({
             return;
         }
 
+        if (selectedObject.data.operational_status === 'active') {
+            alert('Active network objects cannot be deleted. The object must first be deactivated.');
+            return;
+        }
+
         const confirmed = window.confirm(
             `Delete this ${selectedObject.type}? This cannot be undone.`
         );
