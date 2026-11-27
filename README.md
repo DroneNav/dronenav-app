@@ -20,6 +20,7 @@ It provides tools for working with:
 * Zones
 * DronePorts
 * Routes
+* Obstacles
 * Route segment attributes
 * Survey context views
 * Site package views
@@ -67,11 +68,15 @@ A Zone represents an inclusion, exclusion, restriction, or other governed area w
 
 A DronePort represents a defined takeoff, landing, or operating point. DronePorts are point-based and rendered with a diameter to represent their operational footprint.
 
+### Obstacle
+
+An Obstacle represents a permenant obstruction within the airspace.  Obstacles can be point, line or polygon based on the map.
+
 ### Route
 
 A Route represents a governed flight corridor between DronePorts. Routes are line-based and may be one-way, reverse, or bidirectional.
 
-Routes also contain segment attributes. The geometry defines the route path, while segment attributes define operational constraints for each leg of the route, such as width, altitude limits, and speed limits.
+Routes also contain segment attributes. The geometry defines the route path, while segment attributes define operational constraints for each leg of the route, such as width, and altitude limits.
 
 ## Route Segment Attributes
 
@@ -90,7 +95,6 @@ Segment attributes currently include:
 * Route width
 * Minimum altitude
 * Maximum altitude
-* Speed limit
 
 The first segment is treated as the departure segment. The final segment is treated as the approach segment. Intermediate segments represent the cruise or transition legs of the route.
 
@@ -100,7 +104,7 @@ The React front end supports multiple operating modes so the same GIS component 
 
 ### Editor Mode
 
-Editor mode allows users to create and modify DroneNav overlays. It supports map-based drawing and metadata entry for Sites, Zones, DronePorts, and Routes.
+Editor mode allows users to create and modify DroneNav overlays. It supports map-based drawing and metadata entry for Sites, Zones, DronePorts, Obstacles, and Routes.
 
 ### View Mode
 
