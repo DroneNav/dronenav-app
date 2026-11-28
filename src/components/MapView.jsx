@@ -104,6 +104,23 @@ function MapContextBounds({ bounds }) {
     return null;
 }
 
+function MapGeocodePosition({ position }) {
+    const map = useMap();
+
+    useEffect(() => {
+        if (!position) {
+            return;
+        }
+
+        map.setView(
+            [position.latitude, position.longitude],
+            13
+        );
+    }, [map, position]);
+
+    return null;
+}
+
 function MapClickHandler({ onMapClick }) {
     useMapEvents({
         click(e) {
@@ -496,6 +513,11 @@ export default function MapView({
     const [obstacleType, setObstacleType] = useState('');
     const [obstacleMaximumHeightAglFt, setObstacleMaximumHeightAglFt] = useState(0);
     const [obstacleDescription, setObstacleDescription] = useState('');
+    const [geocodeCity, setGeocodeCity] = useState('');
+    const [geocodeState, setGeocodeState] = useState('');
+    const [geocodeZip, setGeocodeZip] = useState('');
+    const [geocodePosition, setGeocodePosition] = useState(null);
+    const [geocodeSearching, setGeocodeSearching] = useState(false);
 
     const pointLabel =
         mapMode === 'create_site'
@@ -1099,6 +1121,75 @@ export default function MapView({
         } catch (error) {
             console.error('Reference data load failed:', error);
             alert('Reference data load failed. Check browser console.');
+        }
+    }
+
+    async function searchGeocode() {
+        const city = geocodeCity.trim();
+        const state = geocodeState.trim();
+        const zip = geocodeZip.trim();
+
+        if (!city || !state) {
+            alert('Enter a City and State.');
+            return;
+        }
+
+        if (geocodeSearching) {
+            return;
+        }
+
+        const params = new URLSearchParams({
+            city,
+            state,
+        });
+
+        if (zip) {
+            params.set('zip', zip);
+        }
+
+        setGeocodeSearching(true);
+
+        try {
+            const response = await fetch(
+                `/api-gateway/geocode?${params.toString()}`,
+                {
+                    credentials: 'same-origin',
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                alert(result.message || 'Geographic search failed.');
+                return;
+            }
+
+            const latitude = Number(result.latitude);
+            const longitude = Number(result.longitude);
+
+            if (
+                result.latitude == null ||
+                result.longitude == null ||
+                !Number.isFinite(latitude) ||
+                !Number.isFinite(longitude) ||
+                Math.abs(latitude) > 90 ||
+                Math.abs(longitude) > 180
+            ) {
+                alert('No valid geographical location was returned.');
+                return;
+            }
+
+            setGeocodePosition({
+                latitude,
+                longitude,
+            });
+        }
+        catch (error) {
+            console.error('Geographic search failed:', error);
+            alert('Geographic search failed. Check browser console.');
+        }
+        finally {
+            setGeocodeSearching(false);
         }
     }
 
@@ -2732,6 +2823,43 @@ export default function MapView({
                                 Load Routes
                             </button>
 
+                            <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+                                <h3>Geographic Search</h3>
+
+                                <input
+                                    type="text"
+                                    placeholder="City"
+                                    value={geocodeCity}
+                                    onChange={(e) => setGeocodeCity(e.target.value)}
+                                    style={{ width: '145px' }}
+                                />
+
+                                <input
+                                    type="text"
+                                    placeholder="State"
+                                    value={geocodeState}
+                                    onChange={(e) => setGeocodeState(e.target.value)}
+                                    style={{ width: '50px', marginLeft: '5px' }}
+                                />
+
+                                <input
+                                    type="text"
+                                    placeholder="ZIP"
+                                    value={geocodeZip}
+                                    onChange={(e) => setGeocodeZip(e.target.value)}
+                                    style={{ width: '65px', marginLeft: '5px' }}
+                                />
+
+                                <div style={{ marginTop: '8px' }}>
+                                    <button
+                                        onClick={searchGeocode}
+                                        disabled={geocodeSearching}
+                                    >
+                                        {geocodeSearching ? 'Searching...' : 'Search'}
+                                    </button>
+                                </div>
+                            </div>
+
                             {mapMode === 'create_site' && (
                                 <>
                                     <h3>Create Site</h3>
@@ -3553,6 +3681,7 @@ export default function MapView({
 
                     <MapClickHandler onMapClick={handleMapClick} />
                     <MapPositionTracker onMove={setCurrentCenter} />
+                    <MapGeocodePosition position={geocodePosition} />
                     <MapZoomDebug />
                     <MapMouseTracker onMove={setMousePosition} />
 
